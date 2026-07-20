@@ -1,5 +1,4 @@
 import dynamic from "next/dynamic"
-import Link from "next/link"
 
 import {
   MAX_BOARD_SLOTS,
@@ -7,31 +6,23 @@ import {
   shouldShowUnassigned,
 } from "@/lib/board-order"
 import type { Profile } from "@/lib/types/auth"
+import {
+  BoardOrderStats,
+  BoardPlayerRow,
+  BoardSectionHeader,
+  OpenBoardSlot,
+  playerDisplayName,
+} from "@/components/board-order-ui"
 
 const BoardOrderDnD = dynamic(
   () =>
     import("@/components/board-order-dnd").then((mod) => mod.BoardOrderDnD),
-  { loading: () => <p className="text-sm text-muted-foreground">Loading board order…</p> }
+  {
+    loading: () => (
+      <p className="text-sm text-muted-foreground">Loading board order…</p>
+    ),
+  }
 )
-
-function BoardBadge({ boardNumber }: { boardNumber: number | null }) {
-  return (
-    <div
-      className={
-        boardNumber == null
-          ? "flex size-12 shrink-0 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/40 text-muted-foreground sm:size-14"
-          : "flex size-12 shrink-0 flex-col items-center justify-center rounded-xl bg-primary/10 text-primary sm:size-14"
-      }
-    >
-      <span className="text-[10px] font-medium uppercase tracking-wide opacity-80">
-        Board
-      </span>
-      <span className="text-lg font-semibold leading-none sm:text-xl">
-        {boardNumber ?? "—"}
-      </span>
-    </div>
-  )
-}
 
 export function BoardOrderTable({
   players,
@@ -44,16 +35,14 @@ export function BoardOrderTable({
     return <BoardOrderDnD players={players} editable />
   }
 
-  const { lineup } = buildBoardOrderState(players)
+  const { lineup, unassigned } = buildBoardOrderState(players)
+  const showUnassigned = shouldShowUnassigned(players)
 
   return (
-    <BoardOrderList
-      entries={lineup.map((player) => ({
-        id: player.id,
-        name: player.full_name?.trim() || player.email,
-        boardNumber: player.board_number,
-        href: `/profile/${player.id}`,
-      }))}
+    <BoardOrderRoster
+      lineup={lineup}
+      unassigned={unassigned}
+      showUnassigned={showUnassigned}
     />
   )
 }
@@ -61,21 +50,14 @@ export function BoardOrderTable({
 export function BoardOrderSummary({ players }: { players: Profile[] }) {
   const { lineup, unassigned } = buildBoardOrderState(players)
   const showUnassigned = shouldShowUnassigned(players)
-  const total = players.length
 
   return (
-    <p className="text-sm text-muted-foreground">
-      {showUnassigned ? (
-        <>
-          {lineup.length} / {MAX_BOARD_SLOTS} boards filled · {unassigned.length}{" "}
-          unassigned · {total} member{total === 1 ? "" : "s"} total
-        </>
-      ) : (
-        <>
-          {total} member{total === 1 ? "" : "s"}
-        </>
-      )}
-    </p>
+    <BoardOrderStats
+      filled={lineup.length}
+      unassigned={unassigned.length}
+      total={players.length}
+      showUnassigned={showUnassigned}
+    />
   )
 }
 
@@ -86,39 +68,97 @@ export type BoardOrderEntry = {
   href?: string
 }
 
-function BoardOrderListItem({ entry }: { entry: BoardOrderEntry }) {
-  const content = (
-    <>
-      <BoardBadge boardNumber={entry.boardNumber} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">{entry.name}</p>
-        {entry.href ? (
-          <p className="text-xs text-muted-foreground">Tap to view profile</p>
-        ) : null}
-      </div>
-    </>
-  )
-
-  if (entry.href) {
+function BoardOrderRoster({
+  lineup,
+  unassigned,
+  showUnassigned,
+}: {
+  lineup: Profile[]
+  unassigned: Profile[]
+  showUnassigned: boolean
+}) {
+  if (lineup.length === 0 && unassigned.length === 0) {
     return (
-      <li className="list-none">
-        <Link
-          href={entry.href}
-          className="flex items-center gap-3 rounded-xl border bg-card p-3 transition-colors hover:bg-muted/30 sm:p-4"
-        >
-          {content}
-        </Link>
-      </li>
+      <div className="rounded-xl border border-dashed px-6 py-10 text-center">
+        <p className="font-medium">No one listed yet</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Members will show up here once accounts are created.
+        </p>
+      </div>
     )
   }
 
+  const openSlots =
+    showUnassigned && lineup.length < MAX_BOARD_SLOTS
+      ? Array.from(
+          { length: MAX_BOARD_SLOTS - lineup.length },
+          (_, index) => lineup.length + index + 1
+        )
+      : []
+
   return (
-    <li className="flex list-none items-center gap-3 rounded-xl border bg-card p-3 sm:p-4">
-      {content}
-    </li>
+    <div className="space-y-8">
+      <section className="space-y-3">
+        <BoardSectionHeader
+          title="Starting lineup"
+          description="Board 1 is the strongest player. Lower numbers play higher boards."
+          count={`${lineup.length} / ${MAX_BOARD_SLOTS}`}
+        />
+        {lineup.length > 0 || openSlots.length > 0 ? (
+          <ol className="space-y-2">
+            {lineup.map((player, index) => (
+              <li key={player.id} className="list-none">
+                <BoardPlayerRow
+                  player={player}
+                  boardNumber={index + 1}
+                  href={`/profile/${player.id}`}
+                />
+              </li>
+            ))}
+            {openSlots.map((boardNumber) => (
+              <li key={`open-${boardNumber}`} className="list-none">
+                <OpenBoardSlot boardNumber={boardNumber} />
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <div className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+            No board order set yet.
+          </div>
+        )}
+      </section>
+
+      {showUnassigned ? (
+        <section className="space-y-3">
+          <BoardSectionHeader
+            title="On the bench"
+            description="These members are not assigned to a board right now."
+            count={String(unassigned.length)}
+          />
+          {unassigned.length > 0 ? (
+            <ul className="space-y-2">
+              {unassigned.map((player) => (
+                <li key={player.id} className="list-none">
+                  <BoardPlayerRow
+                    player={player}
+                    boardNumber={null}
+                    href={`/profile/${player.id}`}
+                  />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+              Everyone is on a board.
+            </div>
+          )}
+        </section>
+      ) : null}
+    </div>
   )
 }
 
+/** Used by event attendee views that only have id/name/board. */
 export function BoardOrderList({ entries }: { entries: BoardOrderEntry[] }) {
   const sorted = [...entries].sort((a, b) => {
     if (a.boardNumber == null && b.boardNumber == null) {
@@ -145,32 +185,61 @@ export function BoardOrderList({ entries }: { entries: BoardOrderEntry[] }) {
   const showUnassigned = entries.length > MAX_BOARD_SLOTS
 
   if (sorted.length === 0) {
-    return <p className="text-sm text-muted-foreground">No one listed yet.</p>
+    return (
+      <div className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+        No one listed yet.
+      </div>
+    )
   }
+
+  const list = showUnassigned ? assigned : sorted
 
   return (
     <div className="space-y-6">
-      {assigned.length > 0 || !showUnassigned ? (
-        <ol className="space-y-2">
-          {(showUnassigned ? assigned : sorted).map((entry) => (
-            <BoardOrderListItem key={entry.id} entry={entry} />
-          ))}
-        </ol>
-      ) : (
-        <p className="text-sm text-muted-foreground">No board order set for this event yet.</p>
-      )}
+      <ol className="space-y-2">
+        {list.map((entry) => (
+          <li key={entry.id} className="list-none">
+            <LegacyEntryRow entry={entry} />
+          </li>
+        ))}
+      </ol>
       {showUnassigned && unassigned.length > 0 ? (
         <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">
-            Unassigned ({unassigned.length})
-          </p>
+          <BoardSectionHeader
+            title="On the bench"
+            count={String(unassigned.length)}
+          />
           <ul className="space-y-2">
             {unassigned.map((entry) => (
-              <BoardOrderListItem key={entry.id} entry={entry} />
+              <li key={entry.id} className="list-none">
+                <LegacyEntryRow entry={entry} />
+              </li>
             ))}
           </ul>
         </div>
       ) : null}
     </div>
+  )
+}
+
+function LegacyEntryRow({ entry }: { entry: BoardOrderEntry }) {
+  const pseudo: Profile = {
+    id: entry.id,
+    email: entry.name.includes("@") ? entry.name : `${entry.id}@local`,
+    full_name: entry.name,
+    phone_number: null,
+    board_number: entry.boardNumber,
+    grade_level: null,
+    bio: null,
+    role: "regular",
+    created_at: "",
+  }
+
+  return (
+    <BoardPlayerRow
+      player={pseudo}
+      boardNumber={entry.boardNumber}
+      href={entry.href}
+    />
   )
 }

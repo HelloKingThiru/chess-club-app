@@ -3,12 +3,9 @@
 import { useEffect, useRef } from "react"
 import { toast } from "sonner"
 
-type ActionResult = {
-  error?: string
-  success?: string
-}
+import type { ActionState } from "@/lib/types/auth"
 
-export function useActionToasts(result: ActionResult, pending: boolean) {
+export function useActionToasts(result: ActionState, pending: boolean) {
   const wasPending = useRef(false)
 
   useEffect(() => {

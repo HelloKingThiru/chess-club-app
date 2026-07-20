@@ -9,10 +9,13 @@ import { addEventAttendeeAction } from "@/app/actions/posts"
 import { BoardOrderDnD } from "@/components/board-order-dnd"
 import type { EventBoardPlayer } from "@/lib/board-order"
 import type { Profile } from "@/lib/types/auth"
-import { inlineFieldButtonClassName, inlineFieldRowClassName } from "@/lib/field-styles"
-import { Button } from "@/components/ui/button"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupNativeSelect,
+} from "@/components/ui/input-group"
 import { Label } from "@/components/ui/label"
-import { NativeSelect } from "@/components/ui/native-select"
 
 export function EventAttendeesSection({
   eventId,
@@ -51,12 +54,11 @@ export function EventAttendeesSection({
       {editable ? (
         <div className="space-y-2">
           <Label htmlFor="add-attendee">Add attendee</Label>
-          <div className={inlineFieldRowClassName}>
-            <NativeSelect
+          <InputGroup className="h-9">
+            <InputGroupNativeSelect
               id="add-attendee"
               value={selectedUserId}
               onChange={(e) => setSelectedUserId(e.target.value)}
-              className="min-w-0 flex-1"
             >
               <option value="">Select member...</option>
               {available.map((p) => (
@@ -64,21 +66,24 @@ export function EventAttendeesSection({
                   {p.full_name || p.email}
                 </option>
               ))}
-            </NativeSelect>
-            <Button
-              type="button"
-              className={inlineFieldButtonClassName}
-              disabled={pending || !selectedUserId}
-              onClick={addAttendee}
-            >
-              {pending ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <UserPlus className="size-4" />
-              )}
-              Add
-            </Button>
-          </div>
+            </InputGroupNativeSelect>
+            <InputGroupAddon align="inline-end">
+              <InputGroupButton
+                type="button"
+                variant="default"
+                size="sm"
+                disabled={pending || !selectedUserId}
+                onClick={addAttendee}
+              >
+                {pending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <UserPlus className="size-4" />
+                )}
+                Add
+              </InputGroupButton>
+            </InputGroupAddon>
+          </InputGroup>
         </div>
       ) : null}
 

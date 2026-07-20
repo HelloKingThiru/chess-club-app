@@ -21,15 +21,7 @@ function compareByBoardThenName(
   return playerName(a).localeCompare(playerName(b))
 }
 
-export function isCoach(player: Profile) {
-  return player.role === "admin"
-}
-
-export function shouldShowUnassigned(players: Profile[], eventMode = false) {
-  if (eventMode) {
-    const regularCount = players.filter((player) => !isCoach(player)).length
-    return players.some(isCoach) || regularCount > MAX_BOARD_SLOTS
-  }
+export function shouldShowUnassigned(players: Profile[]) {
   return players.length > MAX_BOARD_SLOTS
 }
 
@@ -68,7 +60,7 @@ function buildBoardOrderStateFromNumbers(
     if (player) lineup.push(player)
   }
 
-  unassigned.sort((a, b) => playerName(a).localeCompare(playerName(b)))
+  unassigned.sort(compareByBoardThenName)
 
   return { lineup, unassigned }
 }
@@ -82,7 +74,18 @@ export function buildBoardOrderState(players: Profile[]): BoardOrderState {
 
 export type EventBoardPlayer = Profile & { eventBoard?: number | null }
 
-function tryAssignSlot(
+export function hasSavedEventBoardOrder(players: EventBoardPlayer[]) {
+  return players.some((player) => player.eventBoard != null)
+}
+
+/** Arrange event attendees using each member's club board_number. */
+export function buildEventBoardOrderFromClubOrder(
+  players: EventBoardPlayer[]
+): BoardOrderState {
+  return buildBoardOrderState(players)
+}
+
+function tryAssignEventBoardSlot(
   slotByBoard: Map<number, EventBoardPlayer>,
   player: EventBoardPlayer,
   board: number | null | undefined
@@ -99,31 +102,21 @@ function tryAssignSlot(
   return false
 }
 
+/** Use saved per-event boards when present; otherwise fall back to club board order. */
 export function buildEventBoardOrderState(
   players: EventBoardPlayer[]
 ): BoardOrderState {
-  const unassigned: Profile[] = []
+  if (!hasSavedEventBoardOrder(players)) {
+    return buildEventBoardOrderFromClubOrder(players)
+  }
+
+  const unassigned: EventBoardPlayer[] = []
   const slotByBoard = new Map<number, EventBoardPlayer>()
-  const membersAwaitingSlot: EventBoardPlayer[] = []
 
   for (const player of players) {
-    if (isCoach(player)) {
-      if (tryAssignSlot(slotByBoard, player, player.eventBoard)) {
-        continue
-      }
+    if (!tryAssignEventBoardSlot(slotByBoard, player, player.eventBoard)) {
       unassigned.push(player)
-      continue
     }
-
-    if (tryAssignSlot(slotByBoard, player, player.eventBoard)) {
-      continue
-    }
-
-    if (tryAssignSlot(slotByBoard, player, player.board_number)) {
-      continue
-    }
-
-    membersAwaitingSlot.push(player)
   }
 
   const lineup: Profile[] = []
@@ -132,26 +125,7 @@ export function buildEventBoardOrderState(
     if (player) lineup.push(player)
   }
 
-  const inLineup = new Set(lineup.map((player) => player.id))
-
-  membersAwaitingSlot
-    .sort(compareByBoardThenName)
-    .forEach((player) => {
-      if (inLineup.has(player.id)) return
-      if (lineup.length < MAX_BOARD_SLOTS) {
-        lineup.push(player)
-        inLineup.add(player.id)
-      } else {
-        unassigned.push(player)
-      }
-    })
-
-  unassigned.sort((a, b) => {
-    const aCoach = isCoach(a)
-    const bCoach = isCoach(b)
-    if (aCoach !== bCoach) return aCoach ? -1 : 1
-    return playerName(a).localeCompare(playerName(b))
-  })
+  unassigned.sort(compareByBoardThenName)
 
   return { lineup, unassigned }
 }

@@ -1,32 +1,29 @@
-import { Input } from "@/components/ui/input"
-import { fieldFocusWithinClassName, fieldBackgroundClassName } from "@/lib/field-styles"
-import { cn } from "@/lib/utils"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from "@/components/ui/input-group"
 
 function PhoneInput({
   className,
   "aria-invalid": ariaInvalid,
   ...props
-}: React.ComponentProps<"input">) {
+}: Omit<React.ComponentProps<"input">, "size">) {
   return (
-    <div
-      className={cn(
-        fieldFocusWithinClassName,
-        fieldBackgroundClassName,
-        "flex h-8 w-full overflow-hidden",
-        className
-      )}
+    <InputGroup
+      className={className}
       data-invalid={ariaInvalid === true || ariaInvalid === "true" ? true : undefined}
     >
-      <span className="flex shrink-0 items-center border-r border-input bg-muted/50 px-2.5 text-sm text-muted-foreground">
-        +1
-      </span>
-      <Input
+      <InputGroupAddon align="inline-start">
+        <InputGroupText>+1</InputGroupText>
+      </InputGroupAddon>
+      <InputGroupInput
         type="tel"
         aria-invalid={ariaInvalid}
-        className="h-full rounded-none border-0 bg-transparent shadow-none focus-visible:border-0 dark:bg-transparent"
         {...props}
       />
-    </div>
+    </InputGroup>
   )
 }
 

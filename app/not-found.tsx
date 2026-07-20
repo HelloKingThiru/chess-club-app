@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Crown, Home, LogIn } from "lucide-react"
 
+import { siteConfig } from "@/lib/site-config"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -27,7 +28,7 @@ export default function NotFound() {
           </CardDescription>
         </CardHeader>
         <CardContent className="text-center text-sm text-muted-foreground">
-          NCHS Chess Club
+          {siteConfig.name}
         </CardContent>
         <CardFooter className="flex flex-col gap-2 sm:flex-row sm:justify-center">
           <Button asChild size="sm" className="w-full sm:w-auto">

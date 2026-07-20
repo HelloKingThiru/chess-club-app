@@ -5,7 +5,7 @@ import { Loader2, LogIn } from "lucide-react"
 
 import { loginAction } from "@/app/actions/auth"
 import type { ActionState } from "@/lib/types/auth"
-import { useActionToasts } from "@/lib/use-action-toasts"
+import { useActionToasts } from "@/hooks/use-action-toasts"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -26,10 +26,10 @@ export function LoginForm() {
 
   return (
     <Card className="mx-auto w-full max-w-md">
-      <CardHeader>
+      <CardHeader className="text-center sm:text-left">
         <CardTitle>Sign in</CardTitle>
         <CardDescription>
-          NCHS Chess Club accounts are created by admins only.
+          Use your school email and the password from your welcome email.
         </CardDescription>
       </CardHeader>
       <form action={formAction}>
@@ -57,7 +57,7 @@ export function LoginForm() {
           </div>
         </CardContent>
         <CardFooter className="border-t-0 bg-transparent">
-          <Button type="submit" className="w-full" size="sm" disabled={pending}>
+          <Button type="submit" className="w-full" size="lg" disabled={pending}>
             {pending ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (

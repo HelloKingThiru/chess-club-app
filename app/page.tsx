@@ -1,142 +1,87 @@
-import Link from "next/link"
-import { ArrowRight, Calendar, Megaphone } from "lucide-react"
+import { Calendar, Megaphone } from "lucide-react"
 
 import { canUseAdminTools } from "@/lib/admin-mode"
 import { getProfile } from "@/lib/auth"
+import { filterMemberAnnouncements, filterMemberEvents } from "@/lib/post-visibility"
 import { createClient } from "@/lib/supabase/server"
-import { CreateMiniPostDialog } from "@/components/create-mini-post-dialog"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { getEventAttendanceMeta } from "@/lib/event-attendance"
+import { getUpcomingEvents } from "@/lib/upcoming-events"
+import { siteConfig } from "@/lib/site-config"
+import { AnnouncementCard } from "@/components/posts/announcement-card"
+import { AnnouncementDialog } from "@/components/posts/announcement-dialog"
+import { ComingUpSection } from "@/components/events/coming-up-section"
+import { PageHeader, PageSection, PageShell } from "@/components/page-shell"
 import type { Post } from "@/lib/types/posts"
-import { eventTypeLabels, miniKindLabels } from "@/lib/types/posts"
 
 export default async function HomePage() {
   const profile = await getProfile()
   const showAdmin = await canUseAdminTools(profile)
   const supabase = await createClient()
 
-  const { data: posts } = await supabase
+  let postsQuery = supabase
     .from("posts")
     .select("*")
-    .eq("published", true)
     .order("created_at", { ascending: false })
 
+  if (!showAdmin) {
+    postsQuery = postsQuery.eq("published", true)
+  }
+
+  const { data: posts } = await postsQuery
+
   const all = (posts ?? []) as Post[]
-  const announcements = all.filter((p) => p.kind === "mini")
-  const events = all
-    .filter((p) => p.kind === "specific")
-    .sort(
-      (a, b) =>
-        new Date(a.event_date).getTime() - new Date(b.event_date).getTime()
-    )
-  const upcoming = events.filter(
-    (e) => new Date(e.event_date).getTime() >= Date.now()
-  ).slice(0, 4)
+  const allAnnouncements = all.filter((p) => p.kind === "mini")
+  const announcements = showAdmin
+    ? allAnnouncements
+    : filterMemberAnnouncements(allAnnouncements)
+  const events = filterMemberEvents(all.filter((p) => p.kind === "specific"))
+  const upcoming = getUpcomingEvents(events)
+  const { counts, enrolledIds } = await getEventAttendanceMeta(
+    upcoming.map((event) => event.id),
+    profile?.id
+  )
+
+  const firstName = profile?.full_name?.split(" ")[0]
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 px-4 py-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-medium tracking-tight">Home</h1>
-          <p className="text-muted-foreground">
-            Club announcements and a quick look at what&apos;s next.
-          </p>
-        </div>
-        {showAdmin ? <CreateMiniPostDialog /> : null}
-      </div>
+    <PageShell className="space-y-10">
+      <PageHeader
+        eyebrow={siteConfig.name}
+        title={firstName ? `Welcome back, ${firstName}` : "Welcome"}
+        description="Read club announcements, browse upcoming events, and enroll in tournaments."
+        icon={Calendar}
+        action={showAdmin ? <AnnouncementDialog /> : null}
+      />
 
-      {announcements.length > 0 ? (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Megaphone className="size-5 text-primary" />
-            <h2 className="text-lg font-medium">Announcements</h2>
-          </div>
+      {announcements.length > 0 || (showAdmin && allAnnouncements.length > 0) ? (
+        <PageSection
+          title="Announcements"
+          description={
+            showAdmin
+              ? "Pinned announcements appear here for members. Unpinned and archived posts are admin-only."
+              : "News and updates from club leadership."
+          }
+          icon={Megaphone}
+        >
           <div className="grid gap-3">
-            {announcements.map((post) => (
-              <Card key={post.id} size="sm">
-                <CardHeader className="pb-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="secondary">
-                      {post.mini_kind ? miniKindLabels[post.mini_kind] : "Announcement"}
-                    </Badge>
-                    <CardTitle className="text-base">{post.title}</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm whitespace-pre-wrap text-muted-foreground">
-                    {post.body}
-                  </p>
-                </CardContent>
-              </Card>
+            {(showAdmin ? allAnnouncements : announcements).map((post) => (
+              <AnnouncementCard
+                key={post.id}
+                post={post}
+                editable={showAdmin}
+              />
             ))}
           </div>
-        </section>
+        </PageSection>
       ) : null}
 
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Calendar className="size-5 text-muted-foreground" />
-            <h2 className="text-lg font-medium">Coming up</h2>
-          </div>
-          <Button size="sm" variant="outline" asChild>
-            <Link href="/calendar">
-              <Calendar className="size-4" />
-              Full calendar
-            </Link>
-          </Button>
-        </div>
-        {upcoming.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-sm text-muted-foreground">
-              No upcoming events. Check the{" "}
-              <Link href="/calendar" className="text-primary hover:underline">
-                calendar
-              </Link>
-              .
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {upcoming.map((post) => (
-              <Card key={post.id}>
-                <CardHeader className="pb-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {post.event_type ? (
-                      <Badge>{eventTypeLabels[post.event_type]}</Badge>
-                    ) : null}
-                    <CardTitle className="text-base">{post.title}</CardTitle>
-                  </div>
-                  <CardDescription>
-                    {new Date(post.event_date).toLocaleString(undefined, {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button size="sm" variant="ghost" className="h-auto p-0" asChild>
-                    <Link href={`/event/${post.id}`}>
-                      View details
-                      <ArrowRight className="size-4" />
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </section>
-    </div>
+      <ComingUpSection
+        events={upcoming}
+        attendeeCounts={Object.fromEntries(counts)}
+        enrolledIds={[...enrolledIds]}
+        showCalendarLink
+        editable={showAdmin}
+      />
+    </PageShell>
   )
 }

@@ -35,20 +35,20 @@ exception
   when others then null;
 end $$;
 
--- 5) Make your account admin
+-- 5) Make your account admin (replace with your sign-up email)
 update public.profiles
 set role = 'admin'
-where email = 'king.thirukkumaran@gmail.com';
+where email = 'YOUR_ADMIN_EMAIL@example.com';
 
 -- If no row updated, create/link profile from auth user:
 insert into public.profiles (id, email, full_name, role, phone_number)
 select
   id,
   email,
-  coalesce(raw_user_meta_data->>'full_name', 'Thirukkumaran'),
+  coalesce(raw_user_meta_data->>'full_name', 'Club Admin'),
   'admin'::public.user_role,
   nullif(raw_user_meta_data->>'phone_number', '')
 from auth.users
-where email = 'king.thirukkumaran@gmail.com'
+where email = 'YOUR_ADMIN_EMAIL@example.com'
 on conflict (id) do update
 set role = 'admin'::public.user_role;

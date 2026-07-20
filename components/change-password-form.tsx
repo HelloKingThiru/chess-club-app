@@ -5,7 +5,7 @@ import { KeyRound, Loader2, Save } from "lucide-react"
 
 import { changePasswordAction } from "@/app/actions/password"
 import type { ActionState } from "@/lib/types/auth"
-import { useActionToasts } from "@/lib/use-action-toasts"
+import { useActionToasts } from "@/hooks/use-action-toasts"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -54,8 +54,8 @@ export function ChangePasswordForm({ email }: { email: string }) {
             <Input id="confirm_password" name="confirm_password" type="password" required />
           </div>
         </CardContent>
-        <CardFooter>
-          <Button type="submit" size="sm" disabled={pending}>
+        <CardFooter className="border-t-0 bg-transparent">
+          <Button type="submit" className="w-full" size="lg" disabled={pending}>
             {pending ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (

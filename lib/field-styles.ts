@@ -18,9 +18,3 @@ export const fieldFocusWithinClassName = cn(
 export const fieldSizeClassName = "h-8 w-full px-2.5 text-sm"
 
 export const fieldBackgroundClassName = "bg-background dark:bg-input/30"
-
-/** Input/select + button on one row — use default Button (h-8), not size="sm". */
-export const inlineFieldRowClassName =
-  "flex flex-col gap-2 sm:flex-row sm:items-stretch"
-
-export const inlineFieldButtonClassName = "w-full shrink-0 sm:w-auto"

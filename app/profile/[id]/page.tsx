@@ -7,8 +7,15 @@ import { createClient } from "@/lib/supabase/server"
 import { formatGradeLevel } from "@/lib/grade-level"
 import { roleLabel } from "@/lib/roles"
 import type { Profile } from "@/lib/types/auth"
+import { NotificationSettingsCard } from "@/components/notification-settings-card"
 import { ProfileInfoCard } from "@/components/profile-info-card"
 import { formatPhoneDisplay } from "@/components/phone-input"
+import {
+  EmptyState,
+  PageHeader,
+  PageSection,
+  PageShell,
+} from "@/components/page-shell"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -141,41 +148,50 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
       (a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime()
     )
 
+
   return (
-    <div className="mx-auto max-w-6xl space-y-8 px-4 py-8">
-      <div>
-        <h1 className="text-3xl font-medium tracking-tight">
-          {isOwnProfile ? "My profile" : profile.full_name || "Member profile"}
-        </h1>
-        <p className="text-muted-foreground">
-          {isOwnProfile
-            ? "Your contact info and club participation."
-            : "Contact info and events this member has attended."}
-        </p>
-      </div>
+    <PageShell className="space-y-8">
+      <PageHeader
+        title={isOwnProfile ? "My profile" : profile.full_name || "Member profile"}
+        description={
+          isOwnProfile
+            ? "Update your contact info and see events you've attended."
+            : "Contact info and events this member has joined."
+        }
+        icon={User}
+      />
 
       {isOwnProfile ? (
-        <ProfileInfoCard
-          profile={profile}
-          canEditPhone={profile.role === "admin"}
-        />
+        <>
+          <ProfileInfoCard
+            profile={profile}
+            canEditPhone={profile.role === "admin"}
+          />
+          <NotificationSettingsCard />
+        </>
       ) : (
         <ProfileViewCard profile={profile} />
       )}
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium">Participation</h2>
+      <PageSection
+        title="Events attended"
+        description="Tournaments and club events this member enrolled in."
+        icon={Calendar}
+      >
         {events.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-sm text-muted-foreground">
-              No events recorded yet.
-            </CardContent>
-          </Card>
+          <EmptyState
+            title="No events yet"
+            description={
+              isOwnProfile
+                ? "Enroll in an upcoming event from the home page or calendar."
+                : "This member hasn't enrolled in any events yet."
+            }
+          />
         ) : (
           <div className="grid gap-3">
             {events.map((event) => (
               <Link key={event.id} href={`/event/${event.id}`}>
-                <Card className="transition-colors hover:bg-muted/30">
+                <Card className="transition-colors hover:bg-accent/40">
                   <CardHeader className="pb-2">
                     <div className="flex flex-wrap items-center gap-2">
                       {event.event_type ? (
@@ -207,7 +223,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
             ))}
           </div>
         )}
-      </section>
-    </div>
+      </PageSection>
+    </PageShell>
   )
 }

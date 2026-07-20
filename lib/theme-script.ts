@@ -1,0 +1,2 @@
+/** Inline script for next-themes — must run in <head> before paint (React 19). */
+export const themeInitScript = `;(function(){try{var e=document.documentElement,c="theme",n=localStorage.getItem(c)||"system",t=n==="system"?window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light":n;e.classList.remove("light","dark"),t==="dark"?e.classList.add("dark"):e.classList.add("light")}catch(e){}})();`

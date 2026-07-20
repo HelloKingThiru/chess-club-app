@@ -12,6 +12,8 @@ export type Post = {
   event_date: string
   location: string | null
   published: boolean
+  archived_at: string | null
+  pinned_until: string | null
   author_id: string | null
   created_at: string
   updated_at: string

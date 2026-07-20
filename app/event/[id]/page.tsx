@@ -1,13 +1,14 @@
-import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ArrowLeft, Calendar, MapPin, Users } from "lucide-react"
+import { Calendar, MapPin, Users } from "lucide-react"
 
 import { canUseAdminTools } from "@/lib/admin-mode"
 import { getProfile } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
-import { EventAttendeesSection } from "@/components/event-attendees-section"
+import { PostActionsMenu } from "@/components/posts/post-actions-menu"
+import { EventAttendeesSection } from "@/components/events/event-attendees-section"
+import { EventEnrollmentButton } from "@/components/events/event-enrollment-button"
+import { PageBreadcrumb, PageSection, PageShell } from "@/components/page-shell"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -18,6 +19,7 @@ import {
 import type { Profile } from "@/lib/types/auth"
 import type { Post } from "@/lib/types/posts"
 import { eventTypeLabels } from "@/lib/types/posts"
+import { isEventPast } from "@/lib/upcoming-events"
 
 type EventPageProps = {
   params: Promise<{ id: string }>
@@ -69,8 +71,8 @@ export default async function EventPage({ params }: EventPageProps) {
       eventBoard: boardByUser.get(profile.id) ?? null,
     }))
     .sort((a, b) => {
-      const aBoard = a.eventBoard ?? 999
-      const bBoard = b.eventBoard ?? 999
+      const aBoard = a.eventBoard ?? a.board_number ?? 999
+      const bBoard = b.eventBoard ?? b.board_number ?? 999
       if (aBoard !== bBoard) return aBoard - bBoard
       return (a.full_name || a.email).localeCompare(b.full_name || b.email)
     })
@@ -84,60 +86,100 @@ export default async function EventPage({ params }: EventPageProps) {
     allProfiles = (data ?? []) as Profile[]
   }
 
-  return (
-    <div className="mx-auto max-w-6xl space-y-8 px-4 py-8">
-      <Button variant="ghost" size="sm" asChild>
-        <Link href="/calendar">
-          <ArrowLeft className="size-4" />
-          Back to calendar
-        </Link>
-      </Button>
+  const isAttending = currentUser
+    ? attendees.some((attendee) => attendee.id === currentUser.id)
+    : false
+  const isPast = isEventPast(post.event_date)
 
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          {post.event_type ? (
-            <Badge>{eventTypeLabels[post.event_type]}</Badge>
-          ) : null}
-          <h1 className="text-3xl font-medium tracking-tight">{post.title}</h1>
+  return (
+    <PageShell className="space-y-8">
+      <PageBreadcrumb
+        items={[
+          { label: "Home", href: "/" },
+          { label: "Calendar", href: "/calendar" },
+          { label: post.title },
+        ]}
+      />
+
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {post.event_type ? (
+                <Badge>{eventTypeLabels[post.event_type]}</Badge>
+              ) : null}
+              {!post.published ? <Badge variant="outline">Draft</Badge> : null}
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+              {post.title}
+            </h1>
+            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <Calendar className="size-4 text-primary" />
+                {new Date(post.event_date).toLocaleString(undefined, {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              </span>
+              {post.location ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <MapPin className="size-4 text-primary" />
+                  {post.location}
+                </span>
+              ) : null}
+              <span className="inline-flex items-center gap-1.5">
+                <Users className="size-4 text-primary" />
+                {attendees.length} attending
+              </span>
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-start gap-2">
+            {showAdmin ? (
+              <PostActionsMenu
+                post={post}
+                kind="specific"
+                redirectTo="/calendar"
+              />
+            ) : null}
+            {currentUser && !showAdmin ? (
+              <EventEnrollmentButton
+                eventId={id}
+                isAttending={isAttending}
+                isPast={isPast}
+              />
+            ) : null}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-4 text-muted-foreground">
-          <span className="inline-flex items-center gap-1 text-sm">
-            <Calendar className="size-4" />
-            {new Date(post.event_date).toLocaleString(undefined, {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-              hour: "numeric",
-              minute: "2-digit",
-            })}
-          </span>
-          {post.location ? (
-            <span className="inline-flex items-center gap-1 text-sm">
-              <MapPin className="size-4" />
-              {post.location}
-            </span>
-          ) : null}
-        </div>
-      </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Details</CardTitle>
+          <CardTitle>About this event</CardTitle>
+          <CardDescription>What to expect and any extra details.</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="whitespace-pre-wrap text-sm text-muted-foreground">{post.body}</p>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+            {post.body}
+          </p>
         </CardContent>
       </Card>
 
-      <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Users className="size-5" />
-          <h2 className="text-lg font-medium">Attendees</h2>
-        </div>
+      <PageSection
+        title="Who's attending"
+        description={
+          showAdmin
+            ? "Manage the attendee list and board assignments."
+            : "Club members signed up for this event."
+        }
+        icon={Users}
+      >
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>
-              {attendees.length} member{attendees.length === 1 ? "" : "s"} attending
+              {attendees.length} member{attendees.length === 1 ? "" : "s"} enrolled
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -149,7 +191,8 @@ export default async function EventPage({ params }: EventPageProps) {
             />
           </CardContent>
         </Card>
-      </section>
-    </div>
+      </PageSection>
+      </div>
+    </PageShell>
   )
 }

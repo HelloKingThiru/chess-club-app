@@ -1,6 +1,5 @@
 "use client"
 
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useRef, useState } from "react"
 import {
@@ -25,7 +24,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { GripVertical, UserRound } from "lucide-react"
+import { Loader2, ListOrdered } from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -35,25 +34,25 @@ import {
 import {
   MAX_BOARD_SLOTS,
   buildBoardOrderState,
+  buildEventBoardOrderFromClubOrder,
   buildEventBoardOrderState,
   collapseUnassigned,
-  isCoach,
   lineupBoardNumbers,
   shouldShowUnassigned,
   type BoardOrderState,
   type EventBoardPlayer,
 } from "@/lib/board-order"
 import type { Profile } from "@/lib/types/auth"
-import { roleLabel } from "@/lib/roles"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  BoardPlayerRow,
+  BoardSectionHeader,
+  OpenBoardSlot,
+} from "@/components/board-order-ui"
 import { cn } from "@/lib/utils"
 
 const LINEUP_CONTAINER = "lineup"
 const UNASSIGNED_CONTAINER = "unassigned"
-
-function playerName(player: Profile) {
-  return player.full_name || player.email
-}
 
 function findPlayer(state: BoardOrderState, id: UniqueIdentifier) {
   return (
@@ -71,66 +70,6 @@ function findContainer(state: BoardOrderState, id: UniqueIdentifier) {
   return null
 }
 
-function BoardBadge({ boardNumber }: { boardNumber: number | null }) {
-  return (
-    <div
-      className={
-        boardNumber == null
-          ? "flex size-12 shrink-0 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/40 text-muted-foreground sm:size-14"
-          : "flex size-12 shrink-0 flex-col items-center justify-center rounded-xl bg-primary/10 text-primary sm:size-14"
-      }
-    >
-      <span className="text-[10px] font-medium uppercase tracking-wide opacity-80">
-        Board
-      </span>
-      <span className="text-lg font-semibold leading-none sm:text-xl">
-        {boardNumber ?? "—"}
-      </span>
-    </div>
-  )
-}
-
-function PlayerCardContent({
-  player,
-  boardNumber,
-  draggable,
-}: {
-  player: Profile
-  boardNumber: number | null
-  draggable?: boolean
-}) {
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-3 rounded-xl border bg-card p-3 sm:p-4",
-        draggable && "touch-manipulation shadow-lg ring-2 ring-primary/20"
-      )}
-    >
-      {draggable ? (
-        <span className="text-muted-foreground" aria-hidden>
-          <GripVertical className="size-4 shrink-0" />
-        </span>
-      ) : null}
-      <BoardBadge boardNumber={boardNumber} />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={`/profile/${player.id}`}
-            className="truncate font-medium hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {playerName(player)}
-          </Link>
-          <Badge variant="secondary" className="shrink-0">
-            {player.role === "admin" ? "Coach" : roleLabel(player.role)}
-          </Badge>
-        </div>
-        <p className="truncate text-sm text-muted-foreground">{player.email}</p>
-      </div>
-    </div>
-  )
-}
-
 function StaticPlayerRow({
   player,
   boardNumber,
@@ -140,7 +79,11 @@ function StaticPlayerRow({
 }) {
   return (
     <li className="list-none">
-      <PlayerCardContent player={player} boardNumber={boardNumber} />
+      <BoardPlayerRow
+        player={player}
+        boardNumber={boardNumber}
+        href={`/profile/${player.id}`}
+      />
     </li>
   )
 }
@@ -176,10 +119,11 @@ function SortablePlayer({
         {...listeners}
         className="cursor-grab touch-manipulation active:cursor-grabbing"
       >
-        <PlayerCardContent
+        <BoardPlayerRow
           player={player}
           boardNumber={boardNumber}
           draggable
+          showEmail
         />
       </div>
     </li>
@@ -203,11 +147,11 @@ function DropZone({
     <div
       ref={setNodeRef}
       className={cn(
-        "min-h-24 rounded-xl border border-dashed p-2 sm:p-3",
+        "min-h-24 rounded-xl p-2 sm:p-3",
         editable
           ? isOver
-            ? "border-primary bg-primary/5"
-            : "border-muted-foreground/20 bg-muted/20"
+            ? "border border-dashed border-primary bg-primary/5 ring-2 ring-primary/15"
+            : "border border-dashed border-primary/20 bg-muted/30"
           : "border-transparent bg-transparent p-0"
       )}
     >
@@ -236,28 +180,48 @@ function BoardOrderSections({
   const displayState = showUnassigned ? state : collapseUnassigned(state)
   const lineupItems = lineupBoardNumbers(displayState.lineup)
 
+  const openSlots =
+    showUnassigned && !editable && displayState.lineup.length < MAX_BOARD_SLOTS
+      ? Array.from(
+          { length: MAX_BOARD_SLOTS - displayState.lineup.length },
+          (_, index) => displayState.lineup.length + index + 1
+        )
+      : []
+
+  const lineupTitle = showUnassigned
+    ? "Starting lineup"
+    : eventMode
+      ? "Attendees"
+      : "Starting lineup"
+  const lineupDescription = editable
+    ? eventMode && showUnassigned
+      ? `Drag to set boards 1–${MAX_BOARD_SLOTS}. Board 1 is the strongest player.`
+      : showUnassigned
+        ? `Drag players into the lineup for boards 1–${MAX_BOARD_SLOTS}. Reorder to change board numbers.`
+        : "Drag to reorder the list."
+    : "Board 1 is the strongest player. Lower numbers play higher boards."
+
+  const benchTitle = "On the bench"
+  const benchDescription = editable
+    ? eventMode
+      ? "Members not on a board for this event. Drag here to remove from the lineup."
+      : "Drag members here to remove them from the lineup."
+    : eventMode
+      ? "Not assigned to a board for this event."
+      : "These members are not assigned to a board right now."
+
   return (
     <div className="space-y-8">
       <section className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-medium">
-            {showUnassigned ? "Lineup" : "Attendees"}
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            {showUnassigned
-              ? `${displayState.lineup.length} / ${MAX_BOARD_SLOTS} boards`
-              : `${displayState.lineup.length} member${displayState.lineup.length === 1 ? "" : "s"}`}
-          </p>
-        </div>
-        {editable ? (
-          <p className="text-xs text-muted-foreground">
-            {eventMode && showUnassigned
-              ? `Lineup follows club board order for attending members. Drag to adjust boards 1–${MAX_BOARD_SLOTS}.`
-              : showUnassigned
-                ? `Drag players here to assign boards 1–${MAX_BOARD_SLOTS}. Reorder to change board numbers.`
-                : "Drag to reorder attendees."}
-          </p>
-        ) : null}
+        <BoardSectionHeader
+          title={lineupTitle}
+          description={lineupDescription}
+          count={
+            showUnassigned
+              ? `${displayState.lineup.length} / ${MAX_BOARD_SLOTS}`
+              : `${displayState.lineup.length}`
+          }
+        />
         <DropZone
           id={LINEUP_CONTAINER}
           editable={editable}
@@ -267,7 +231,7 @@ function BoardOrderSections({
               : "No board order set yet."
           }
         >
-          {lineupItems.length > 0 ? (
+          {lineupItems.length > 0 || openSlots.length > 0 ? (
             editable ? (
               <SortableContext
                 items={displayState.lineup.map((p) => p.id)}
@@ -292,6 +256,11 @@ function BoardOrderSections({
                     boardNumber={boardNumber}
                   />
                 ))}
+                {openSlots.map((boardNumber) => (
+                  <li key={`open-${boardNumber}`} className="list-none">
+                    <OpenBoardSlot boardNumber={boardNumber} />
+                  </li>
+                ))}
               </ol>
             )
           ) : null}
@@ -300,26 +269,18 @@ function BoardOrderSections({
 
       {showUnassigned ? (
         <section className="space-y-3">
-          <div className="flex items-center gap-2">
-            <UserRound className="size-4 text-muted-foreground" />
-            <h2 className="text-sm font-medium">
-              {eventMode && displayState.unassigned.every(isCoach)
-                ? "Coaches"
-                : eventMode
-                  ? "Coaches & overflow"
-                  : "Unassigned"}
-            </h2>
-            <span className="text-xs text-muted-foreground">
-              ({displayState.unassigned.length})
-            </span>
-          </div>
+          <BoardSectionHeader
+            title={benchTitle}
+            description={benchDescription}
+            count={String(displayState.unassigned.length)}
+          />
           <DropZone
             id={UNASSIGNED_CONTAINER}
             editable={editable}
             emptyMessage={
               eventMode
-                ? "Coaches stay here by default."
-                : "Everyone is on the board."
+                ? "No one on the bench."
+                : "Everyone is on a board."
             }
           >
             {displayState.unassigned.length > 0 ? (
@@ -366,7 +327,8 @@ type BoardOrderDnDProps = {
 export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps) {
   const router = useRouter()
   const eventMode = Boolean(eventId)
-  const showUnassigned = shouldShowUnassigned(players, eventMode)
+  const eventPlayers = players as EventBoardPlayer[]
+  const showUnassigned = shouldShowUnassigned(players)
   const buildState = useMemo(
     () => (eventId ? buildEventBoardOrderState : buildBoardOrderState),
     [eventId]
@@ -378,6 +340,7 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
   const [state, setState] = useState(seed)
   const stateRef = useRef(state)
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
 
   stateRef.current = state
 
@@ -401,22 +364,33 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
     ? state.lineup
     : collapseUnassigned(state).lineup
 
-  function persist(lineup: Profile[]) {
+  async function arrangeByClubOrder() {
+    const arranged = buildEventBoardOrderFromClubOrder(eventPlayers)
+    const next = showUnassigned ? arranged : collapseUnassigned(arranged)
+    setState(next)
+    await persist(arranged.lineup)
+  }
+
+  async function persist(lineup: Profile[]) {
     const lineupIds = lineup.map((p) => p.id)
     const save = eventId
       ? () => saveEventBoardOrderAction(eventId, lineupIds)
       : () => saveBoardOrderAction(lineupIds)
 
-    void save().then((result) => {
+    setIsSaving(true)
+    try {
+      const result = await save()
       if (result.error) {
         toast.error(result.error)
         const built = buildState(players)
         setState(showUnassigned ? built : collapseUnassigned(built))
       } else if (result.success) {
         toast.success(result.success)
-        if (eventId) router.refresh()
+        router.refresh()
       }
-    })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   function moveBetweenContainers(
@@ -503,13 +477,14 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
   }
 
   function handleDragStart(event: DragStartEvent) {
+    if (isSaving) return
     setActiveId(event.active.id)
   }
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
     setActiveId(null)
-    if (!over) return
+    if (isSaving || !over) return
 
     const prev = stateRef.current
     const next = applyDragEnd(prev, active.id, over.id)
@@ -557,15 +532,54 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <BoardOrderSections
-        state={state}
-        editable
-        showUnassigned={showUnassigned}
-        eventMode={eventMode}
-      />
+      {eventMode && editable ? (
+        <div className="mb-4 flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isSaving}
+            onClick={() => void arrangeByClubOrder()}
+          >
+            {isSaving ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <ListOrdered className="size-4" />
+            )}
+            Arrange by current order
+          </Button>
+        </div>
+      ) : null}
+      <div className="relative">
+        {isSaving ? (
+          <div
+            className="absolute inset-0 z-20 flex items-start justify-center rounded-xl bg-background/50 pt-16 backdrop-blur-[1px]"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm font-medium shadow-sm">
+              <Loader2 className="size-4 animate-spin text-primary" />
+              Saving board order…
+            </div>
+          </div>
+        ) : null}
+        <div
+          className={cn(
+            "transition-opacity",
+            isSaving && "pointer-events-none opacity-60"
+          )}
+        >
+          <BoardOrderSections
+            state={state}
+            editable
+            showUnassigned={showUnassigned}
+            eventMode={eventMode}
+          />
+        </div>
+      </div>
       <DragOverlay dropAnimation={null}>
         {activePlayer ? (
-          <PlayerCardContent
+          <BoardPlayerRow
             player={activePlayer}
             boardNumber={
               displayLineup.findIndex((p) => p.id === activePlayer.id) >= 0
@@ -573,6 +587,7 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
                 : null
             }
             draggable
+            showEmail
           />
         ) : null}
       </DragOverlay>

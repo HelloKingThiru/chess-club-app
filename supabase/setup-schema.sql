@@ -380,21 +380,21 @@ exception
   when others then null;
 end $$;
 
--- 5) Make your account admin
+-- 5) Make your account admin (replace with your sign-up email)
 update public.profiles
 set role = 'admin'
-where email = 'king.thirukkumaran@gmail.com';
+where email = 'YOUR_ADMIN_EMAIL@example.com';
 
 -- If no row updated, create/link profile from auth user:
 insert into public.profiles (id, email, full_name, role, phone_number)
 select
   id,
   email,
-  coalesce(raw_user_meta_data->>'full_name', 'Thirukkumaran'),
+  coalesce(raw_user_meta_data->>'full_name', 'Club Admin'),
   'admin'::public.user_role,
   nullif(raw_user_meta_data->>'phone_number', '')
 from auth.users
-where email = 'king.thirukkumaran@gmail.com'
+where email = 'YOUR_ADMIN_EMAIL@example.com'
 on conflict (id) do update
 set role = 'admin'::public.user_role;
 
@@ -451,6 +451,24 @@ create policy "Admins manage event attendees"
   on public.event_attendees for all
   using (public.is_admin()) with check (public.is_admin());
 
+drop policy if exists "Users enroll themselves" on public.event_attendees;
+create policy "Users enroll themselves"
+  on public.event_attendees for insert
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.posts p
+      where p.id = event_id
+        and p.kind = 'specific'
+        and p.published = true
+    )
+  );
+
+drop policy if exists "Users unenroll themselves" on public.event_attendees;
+create policy "Users unenroll themselves"
+  on public.event_attendees for delete
+  using (auth.uid() = user_id);
+
 drop policy if exists "Anyone can read event board order" on public.event_board_order;
 create policy "Anyone can read event board order"
   on public.event_board_order for select using (true);
@@ -484,4 +502,44 @@ alter table public.profiles
 -- Admin/coach profile bio shown on their profile page.
 
 alter table public.profiles add column if not exists bio text;
+
+
+-- ========== migration-v9.sql ==========
+
+alter table public.posts
+  add column if not exists archived_at timestamptz,
+  add column if not exists pinned_until timestamptz;
+
+update public.posts
+set pinned_until = now() + interval '7 days'
+where kind = 'mini'
+  and published = true
+  and archived_at is null
+  and pinned_until is null;
+
+drop policy if exists "Anyone can read published posts" on public.posts;
+create policy "Anyone can read published posts"
+  on public.posts for select
+  using (
+    public.is_admin()
+    or (
+      published = true
+      and archived_at is null
+      and (kind != 'mini' or (pinned_until is not null and pinned_until > now()))
+    )
+  );
+
+drop policy if exists "Users enroll themselves" on public.event_attendees;
+create policy "Users enroll themselves"
+  on public.event_attendees for insert
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.posts p
+      where p.id = event_id
+        and p.kind = 'specific'
+        and p.published = true
+        and p.archived_at is null
+    )
+  );
 

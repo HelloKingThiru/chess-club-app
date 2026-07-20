@@ -1,9 +1,15 @@
 import { canUseAdminTools } from "@/lib/admin-mode"
 import { getProfile } from "@/lib/auth"
+import { filterMemberEvents } from "@/lib/post-visibility"
 import { createClient } from "@/lib/supabase/server"
-import { ClubCalendar } from "@/components/club-calendar"
-import { CreateSpecificPostDialog } from "@/components/create-specific-post-dialog"
+import { getEventAttendanceMeta } from "@/lib/event-attendance"
+import { getUpcomingEvents } from "@/lib/upcoming-events"
+import { ClubCalendar } from "@/components/events/club-calendar"
+import { ComingUpSection } from "@/components/events/coming-up-section"
+import { EventDialog } from "@/components/posts/event-dialog"
+import { PageHeader, PageShell } from "@/components/page-shell"
 import type { Post } from "@/lib/types/posts"
+import { Calendar } from "lucide-react"
 
 export default async function CalendarPage() {
   const profile = await getProfile()
@@ -17,22 +23,30 @@ export default async function CalendarPage() {
     .eq("published", true)
     .order("event_date", { ascending: true })
 
-  const events = (posts ?? []) as Post[]
+  const events = filterMemberEvents((posts ?? []) as Post[])
+  const upcoming = getUpcomingEvents(events)
+  const { counts, enrolledIds } = await getEventAttendanceMeta(
+    upcoming.map((event) => event.id),
+    profile?.id
+  )
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-medium tracking-tight">Calendar</h1>
-          <p className="text-muted-foreground">
-            See what&apos;s coming up — club meets, league games, tournaments, and
-            fundraisers.
-          </p>
-        </div>
-        {showAdmin ? <CreateSpecificPostDialog /> : null}
-      </div>
+    <PageShell className="space-y-10">
+      <PageHeader
+        title="Calendar"
+        description="Pick a date to see what's scheduled, then browse everything coming up below."
+        icon={Calendar}
+        action={showAdmin ? <EventDialog /> : null}
+      />
 
       <ClubCalendar events={events} />
-    </div>
+
+      <ComingUpSection
+        events={upcoming}
+        attendeeCounts={Object.fromEntries(counts)}
+        enrolledIds={[...enrolledIds]}
+        editable={showAdmin}
+      />
+    </PageShell>
   )
 }

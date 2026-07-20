@@ -1,23 +1,19 @@
--- Mock data for NCHS Chess Club (calendar, board order, announcements).
--- Prefer: node --env-file=.env.local scripts/seed-mock-data.mjs
--- Or run this in Supabase SQL Editor (requires pgcrypto; creates auth users).
---
--- Mock password for all *@nchs-chess.mock accounts: NchsChess2026!
+-- Demo club data for NCHS Chess Club.
+-- Prefer: npm run seed:mock  (from app/)
+-- Or run this in Supabase SQL Editor (requires pgcrypto).
 
 create extension if not exists pgcrypto;
-
--- ── Cleanup (safe to re-run) ────────────────────────────────────────────────
 
 delete from public.game_results
 where player_id in (
   select id from public.profiles where email like '%@nchs-chess.mock'
 );
 
-delete from public.posts where title like '[MOCK] %';
-
+delete from public.event_board_order;
+delete from public.event_attendees;
+delete from public.posts where title like '[MOCK] %' or author_id is not null;
+delete from public.posts;
 delete from auth.users where email like '%@nchs-chess.mock';
-
--- ── Helper: create one auth user + profile extras ───────────────────────────
 
 create or replace function public._seed_mock_user(
   p_id uuid,
@@ -100,20 +96,22 @@ begin
 end;
 $$;
 
--- Fixed UUIDs for stable references
 do $$
 declare
   admin_id uuid;
-  u_emma uuid := 'a1000001-0000-4000-8000-000000000001';
-  u_marcus uuid := 'a1000002-0000-4000-8000-000000000002';
-  u_sofia uuid := 'a1000003-0000-4000-8000-000000000003';
-  u_liam uuid := 'a1000004-0000-4000-8000-000000000004';
-  u_ava uuid := 'a1000005-0000-4000-8000-000000000005';
-  u_noah uuid := 'a1000006-0000-4000-8000-000000000006';
-  u_mia uuid := 'a1000007-0000-4000-8000-000000000007';
-  u_ethan uuid := 'a1000008-0000-4000-8000-000000000008';
-  ev_today uuid;
+  u_priya uuid := 'b2000001-0000-4000-8000-000000000001';
+  u_daniel uuid := 'b2000002-0000-4000-8000-000000000002';
+  u_hannah uuid := 'b2000003-0000-4000-8000-000000000003';
+  u_tyler uuid := 'b2000004-0000-4000-8000-000000000004';
+  u_olivia uuid := 'b2000005-0000-4000-8000-000000000005';
+  u_caleb uuid := 'b2000006-0000-4000-8000-000000000006';
+  u_nina uuid := 'b2000007-0000-4000-8000-000000000007';
+  u_jordan uuid := 'b2000008-0000-4000-8000-000000000008';
+  u_aisha uuid := 'b2000009-0000-4000-8000-000000000009';
+  u_chris uuid := 'b200000a-0000-4000-8000-00000000000a';
+  ev_practice uuid;
   ev_league uuid;
+  ev_county uuid;
 begin
   select id into admin_id
   from public.profiles
@@ -125,57 +123,66 @@ begin
     raise exception 'No admin profile found. Create your admin account first.';
   end if;
 
-  perform public._seed_mock_user(u_emma, 'emma.chen@nchs-chess.mock', 'Emma Chen', 1, 12, '555-0101', 'Team captain. USCF 1450.');
-  perform public._seed_mock_user(u_marcus, 'marcus.johnson@nchs-chess.mock', 'Marcus Johnson', 2, 11, '555-0102');
-  perform public._seed_mock_user(u_sofia, 'sofia.patel@nchs-chess.mock', 'Sofia Patel', 3, 10, '555-0103');
-  perform public._seed_mock_user(u_liam, 'liam.obrien@nchs-chess.mock', 'Liam O''Brien', 4, 12, '555-0104');
-  perform public._seed_mock_user(u_ava, 'ava.williams@nchs-chess.mock', 'Ava Williams', 5, 9, '555-0105');
-  perform public._seed_mock_user(u_noah, 'noah.garcia@nchs-chess.mock', 'Noah Garcia', 6, 11, '555-0106');
-  perform public._seed_mock_user(u_mia, 'mia.thompson@nchs-chess.mock', 'Mia Thompson', 7, 10, '555-0107');
-  perform public._seed_mock_user(u_ethan, 'ethan.kim@nchs-chess.mock', 'Ethan Kim', 8, 9, '555-0108');
-  perform public._seed_mock_user('a1000009-0000-4000-8000-000000000009'::uuid, 'zoe.martinez@nchs-chess.mock', 'Zoe Martinez', null, 10, '555-0109');
-  perform public._seed_mock_user('a100000a-0000-4000-8000-00000000000a'::uuid, 'james.wilson@nchs-chess.mock', 'James Wilson', null, 11, '555-0110');
+  perform public._seed_mock_user(u_priya, 'priya.sharma@nchs-chess.mock', 'Priya Sharma', 1, 12, '847-555-0142', 'Varsity captain. USCF 1520.');
+  perform public._seed_mock_user(u_daniel, 'daniel.reyes@nchs-chess.mock', 'Daniel Reyes', 2, 11, '847-555-0188');
+  perform public._seed_mock_user(u_hannah, 'hannah.park@nchs-chess.mock', 'Hannah Park', 3, 12, '847-555-0201');
+  perform public._seed_mock_user(u_tyler, 'tyler.brooks@nchs-chess.mock', 'Tyler Brooks', 4, 10, '847-555-0234');
+  perform public._seed_mock_user(u_olivia, 'olivia.nguyen@nchs-chess.mock', 'Olivia Nguyen', 5, 11, '847-555-0267');
+  perform public._seed_mock_user(u_caleb, 'caleb.morrison@nchs-chess.mock', 'Caleb Morrison', 6, 9, '847-555-0290');
+  perform public._seed_mock_user(u_nina, 'nina.kowalski@nchs-chess.mock', 'Nina Kowalski', 7, 10, '847-555-0315');
+  perform public._seed_mock_user(u_jordan, 'jordan.lee@nchs-chess.mock', 'Jordan Lee', 8, 12, '847-555-0348');
+  perform public._seed_mock_user(u_aisha, 'aisha.rahman@nchs-chess.mock', 'Aisha Rahman', null, 9, '847-555-0371');
+  perform public._seed_mock_user(u_chris, 'chris.delgado@nchs-chess.mock', 'Chris Delgado', null, 11, '847-555-0394');
 
-  insert into public.posts (title, body, kind, mini_kind, event_type, event_date, location, published, author_id)
+  insert into public.posts (title, body, kind, mini_kind, event_type, event_date, location, published, pinned_until, author_id)
   values
-    ('[MOCK] League dues due this Friday', 'Bring $15 to Thursday practice.', 'mini', 'reminder', null, date_trunc('day', now()) + interval '8 hours', null, true, admin_id),
-    ('[MOCK] Practice moved to Room 214', 'Media center is booked for testing.', 'mini', 'update', null, now() - interval '1 day', null, true, admin_id),
-    ('[MOCK] Welcome new members', 'Intro night recap and next steps.', 'mini', 'update', null, now() - interval '3 days', null, true, admin_id),
-    ('[MOCK] Weekly club meet', 'Open boards and blitz.', 'specific', null, 'club_meet', now() - interval '7 days', 'Room 214', true, admin_id),
-    ('[MOCK] Club meet — tactics night', 'Puzzle rush and mini tournament.', 'specific', null, 'club_meet', date_trunc('day', now()) + interval '15 hours 30 minutes', 'Room 214', true, admin_id),
-    ('[MOCK] Club meet — endgame study', 'Rook endings focus.', 'specific', null, 'club_meet', now() + interval '7 days', 'Room 214', true, admin_id),
-    ('[MOCK] League match vs. Westview', 'Bus leaves 8:15 AM.', 'specific', null, 'league_game', date_trunc('week', now()) + interval '6 days 9 hours', 'Westview High School', true, admin_id),
-    ('[MOCK] County scholastic tournament', 'Five-round Swiss, G/30.', 'specific', null, 'tournament', now() + interval '21 days', 'NCHS Gymnasium', true, admin_id),
-    ('[MOCK] Bake sale fundraiser', 'Sign up for a lunch shift.', 'specific', null, 'fundraiser', now() + interval '14 days', 'Main hallway', true, admin_id);
+    ('Varsity lineup for Saturday is posted', 'Check the event page for board assignments vs. East Ridge.', 'mini', 'update', null, now(), null, true, now() + interval '10 days', admin_id),
+    ('Tuesday practice — Library B', 'Meet in Library B after 8th period this week.', 'mini', 'reminder', null, now(), null, true, now() + interval '4 days', admin_id),
+    ('County Open registration closes Wednesday', 'Tell Coach by Wednesday if you plan to play.', 'mini', 'reminder', null, now() - interval '1 day', null, true, now() + interval '6 days', admin_id),
+    ('Tuesday club practice', 'Tactics warm-up and G/45 skittles.', 'specific', null, 'club_meet', now() + interval '1 day 15 hours 30 minutes', 'Library B', true, null, admin_id),
+    ('Blitz & ladder night', 'Five rounds of 3+2 blitz.', 'specific', null, 'club_meet', now() + interval '4 days 15 hours 45 minutes', 'Room 214', true, null, admin_id),
+    ('League match @ East Ridge', 'Varsity and JV travel. Bus leaves 7:45 AM.', 'specific', null, 'league_game', date_trunc('week', now()) + interval '6 days 8 hours 30 minutes', 'East Ridge High School', true, null, admin_id),
+    ('Opening workshop — Italian Game', 'Main lines for white and practical responses for black.', 'specific', null, 'club_meet', now() + interval '11 days 15 hours 30 minutes', 'Room 214', true, null, admin_id),
+    ('JV home match vs. Lakeside', 'Home match in the library. Arrive by 3:15.', 'specific', null, 'league_game', now() + interval '14 days 16 hours', 'NCHS Library', true, null, admin_id),
+    ('Lake County Scholastic Open', 'Five-round Swiss, G/45 d5.', 'specific', null, 'tournament', now() + interval '18 days 8 hours', 'NCHS Gymnasium', true, null, admin_id),
+    ('Travel fund bake sale', 'Sign up for a lunch shift.', 'specific', null, 'fundraiser', now() + interval '9 days 11 hours', 'Main hallway', true, null, admin_id),
+    ('Endgame clinic — rook endings', 'Lucena, Philidor, and conversion practice.', 'specific', null, 'club_meet', now() + interval '21 days 15 hours 30 minutes', 'Room 214', true, null, admin_id);
 
-  select id into ev_today from public.posts where title = '[MOCK] Club meet — tactics night' limit 1;
-  select id into ev_league from public.posts where title = '[MOCK] League match vs. Westview' limit 1;
+  select id into ev_practice from public.posts where title = 'Tuesday club practice' limit 1;
+  select id into ev_league from public.posts where title = 'League match @ East Ridge' limit 1;
+  select id into ev_county from public.posts where title = 'Lake County Scholastic Open' limit 1;
 
   insert into public.event_attendees (event_id, user_id)
-  select ev_league, u from (values (u_emma), (u_marcus), (u_sofia), (u_liam), (u_ava), (u_noah)) as t(u)
+  select ev_league, u from (values (u_priya), (u_daniel), (u_hannah), (u_tyler), (u_olivia), (u_caleb), (u_nina)) as t(u)
   on conflict do nothing;
 
   insert into public.event_attendees (event_id, user_id)
-  select ev_today, u from (values (u_emma), (u_marcus), (u_sofia), (u_liam), (u_ava), (u_noah)) as t(u)
+  select ev_practice, u from (values (u_priya), (u_daniel), (u_hannah), (u_tyler), (u_olivia)) as t(u)
+  on conflict do nothing;
+
+  insert into public.event_attendees (event_id, user_id)
+  select ev_county, u from (values (u_priya), (u_daniel), (u_hannah), (u_tyler), (u_olivia), (u_caleb)) as t(u)
   on conflict do nothing;
 
   insert into public.event_board_order (event_id, user_id, board_number)
   values
-    (ev_league, u_emma, 1),
-    (ev_league, u_marcus, 2),
-    (ev_league, u_sofia, 3),
-    (ev_league, u_liam, 4),
-    (ev_league, u_ava, 5),
-    (ev_league, u_noah, 6),
-    (ev_league, u_mia, 7),
-    (ev_league, u_ethan, 8)
+    (ev_league, u_priya, 1),
+    (ev_league, u_daniel, 2),
+    (ev_league, u_hannah, 3),
+    (ev_league, u_tyler, 4),
+    (ev_league, u_olivia, 5),
+    (ev_league, u_caleb, 6),
+    (ev_league, u_nina, 7),
+    (ev_league, u_jordan, 8)
   on conflict do nothing;
 
   insert into public.game_results (player_id, opponent, result, event_name, played_on, board_number)
   values
-    (u_emma, 'Westview — Board 1', 'win', 'League match', current_date - 14, 1),
-    (u_marcus, 'Central — Board 2', 'draw', 'League match', current_date - 14, 2),
-    (u_sofia, 'Ridgeview — Board 3', 'loss', 'League match', current_date - 21, 3);
+    (u_priya, 'Glenbrook North — Board 1', 'win', 'League match', current_date - 10, 1),
+    (u_daniel, 'Glenbrook North — Board 2', 'draw', 'League match', current_date - 10, 2),
+    (u_hannah, 'Maine South — Board 3', 'win', 'League match', current_date - 17, 3),
+    (u_tyler, 'Maine South — Board 4', 'loss', 'League match', current_date - 17, 4),
+    (u_olivia, 'New Trier — Board 5', 'win', 'League match', current_date - 24, 5);
 end;
 $$;
 

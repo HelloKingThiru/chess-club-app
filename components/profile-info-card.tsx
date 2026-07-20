@@ -19,7 +19,7 @@ import { updateProfileAction } from "@/app/actions/profile"
 import type { ActionState, Profile } from "@/lib/types/auth"
 import { formatGradeLevel, GRADE_LEVELS, gradeLevelOptionLabel } from "@/lib/grade-level"
 import { roleLabel } from "@/lib/roles"
-import { useActionToasts } from "@/lib/use-action-toasts"
+import { useActionToasts } from "@/hooks/use-action-toasts"
 import { SignOutButton } from "@/components/sign-out-button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -153,11 +153,11 @@ export function ProfileInfoCard({ profile, canEditPhone }: ProfileInfoCardProps)
             <Button
               type="button"
               variant="outline"
-              size="icon-sm"
+              size="sm"
               onClick={() => setEditing(true)}
-              aria-label="Edit profile"
             >
               <Pencil className="size-4" />
+              Edit profile
             </Button>
           ) : null}
           <SignOutButton />
@@ -237,7 +237,7 @@ export function ProfileInfoCard({ profile, canEditPhone }: ProfileInfoCardProps)
             ) : null}
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
-                <Button type="submit" size="sm" disabled={pending}>
+                <Button type="submit" size="lg" disabled={pending}>
                   {pending ? (
                     <Loader2 className="size-4 animate-spin" />
                   ) : (
@@ -248,7 +248,7 @@ export function ProfileInfoCard({ profile, canEditPhone }: ProfileInfoCardProps)
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
+                  size="lg"
                   onClick={() => setEditing(false)}
                 >
                   <X className="size-4" />
