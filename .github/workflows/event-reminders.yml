@@ -1,0 +1,30 @@
+# Free daily event reminder emails (alternative to Vercel Cron Pro).
+# Add repo secrets in GitHub → Settings → Secrets and variables → Actions:
+#   CRON_SECRET          — same value as in Vercel / .env.local
+#   APP_URL (optional)   — defaults to https://www.nchschessclub.com
+
+name: Event email reminders
+
+on:
+  schedule:
+    # 14:00 UTC ≈ 9:00 AM US Central (CDT)
+    - cron: "0 14 * * *"
+  workflow_dispatch:
+
+jobs:
+  send-reminders:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger reminder endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: ${{ secrets.APP_URL }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "Missing CRON_SECRET repository secret"
+            exit 1
+          fi
+          BASE_URL="${APP_URL:-https://www.nchschessclub.com}"
+          curl -fsS \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${BASE_URL}/api/cron/event-reminders"

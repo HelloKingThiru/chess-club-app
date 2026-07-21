@@ -290,6 +290,7 @@ async function seedPosts(authorId) {
       body: "Check the event page for board assignments vs. East Ridge. Bus leaves from Door 4 at 7:45 AM sharp. Wear your club polo.",
       mini_kind: "update",
       event_date: eventDate(0, 9, 0),
+      pinned_until: pinUntil(10),
     },
     {
       kind: "mini",
@@ -297,6 +298,7 @@ async function seedPosts(authorId) {
       body: "The media center is closed for AP testing this week. Meet in Library B right after 8th period. Bring your notation book.",
       mini_kind: "reminder",
       event_date: eventDate(0, 8, 15),
+      pinned_until: pinUntil(4),
     },
     {
       kind: "mini",
@@ -304,6 +306,7 @@ async function seedPosts(authorId) {
       body: "If you plan to play on July 26, tell Coach by Wednesday so we can submit the team entry. Fee is covered for varsity boards 1–6.",
       mini_kind: "reminder",
       event_date: eventDate(-1, 14, 0),
+      pinned_until: pinUntil(6),
     },
   ]
 
@@ -399,37 +402,53 @@ async function seedPosts(authorId) {
   ]
 
   const allPosts = [...announcements, ...events]
-  const { data, error } = await admin
-    .from("posts")
-    .insert(
-      allPosts.map((p) => ({
-        ...p,
-        published: true,
-        author_id: authorId,
-      }))
-    )
-    .select("id, title, kind, event_type")
+  const rows = allPosts.map((p) => ({
+    ...p,
+    published: true,
+    author_id: authorId,
+  }))
+
+  let { data, error } = await admin.from("posts").insert(rows).select("id, title, kind, event_type")
+
+  if (error?.message?.includes("pinned_until")) {
+    const withoutPins = rows.map(({ pinned_until: _pin, ...rest }) => rest)
+    const retry = await admin
+      .from("posts")
+      .insert(withoutPins)
+      .select("id, title, kind, event_type")
+    data = retry.data
+    error = retry.error
+  }
 
   if (error) throw new Error(`Insert posts failed: ${error.message}`)
 
   const inserted = data ?? []
-  await applyPinnedUntilIfSupported(inserted.filter((p) => p.kind === "mini"))
+  await applyPinnedUntilIfSupported(
+    inserted.filter((p) => p.kind === "mini"),
+    announcements.map((a) => a.pinned_until)
+  )
 
   return inserted
 }
 
-async function applyPinnedUntilIfSupported(miniPosts) {
+async function applyPinnedUntilIfSupported(miniPosts, pinnedUntilValues = []) {
   if (miniPosts.length === 0) return
 
   const pinDays = [10, 4, 6]
   for (let i = 0; i < miniPosts.length; i++) {
-    const days = pinDays[i] ?? 7
+    const pinnedUntil =
+      pinnedUntilValues[i] ?? pinUntil(pinDays[i] ?? 7)
     const { error } = await admin
       .from("posts")
-      .update({ pinned_until: pinUntil(days) })
+      .update({ pinned_until: pinnedUntil })
       .eq("id", miniPosts[i].id)
 
-    if (error?.message?.includes("pinned_until")) return
+    if (error?.message?.includes("pinned_until")) {
+      console.warn(
+        "  pinned_until column missing — run supabase/migration-v9.sql, then npm run repair:pins"
+      )
+      return
+    }
     if (error) throw new Error(`Pin announcements failed: ${error.message}`)
   }
 }

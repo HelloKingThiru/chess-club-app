@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server"
 import { formatGradeLevel } from "@/lib/grade-level"
 import { roleLabel } from "@/lib/roles"
 import type { Profile } from "@/lib/types/auth"
+import { getNotificationPreferences } from "@/app/actions/notifications"
 import { NotificationSettingsCard } from "@/components/notification-settings-card"
 import { ProfileInfoCard } from "@/components/profile-info-card"
 import { formatPhoneDisplay } from "@/components/phone-input"
@@ -121,6 +122,9 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
 
   const profile = profileRow as Profile
   const isOwnProfile = currentUser?.id === profile.id
+  const notificationPreferences = isOwnProfile
+    ? await getNotificationPreferences()
+    : null
 
   const { data: attendance } = await supabase
     .from("event_attendees")
@@ -167,7 +171,13 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
             profile={profile}
             canEditPhone={profile.role === "admin"}
           />
-          <NotificationSettingsCard />
+          <NotificationSettingsCard
+            initialPreferences={{
+              email_announcements: notificationPreferences!.email_announcements,
+              email_events: notificationPreferences!.email_events,
+              email_enrollment: notificationPreferences!.email_enrollment,
+            }}
+          />
         </>
       ) : (
         <ProfileViewCard profile={profile} />

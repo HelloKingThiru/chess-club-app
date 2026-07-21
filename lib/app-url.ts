@@ -14,3 +14,7 @@ export function isPushConfigured() {
       process.env.VAPID_SUBJECT
   )
 }
+
+export function isEmailConfigured() {
+  return Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL)
+}

@@ -8,6 +8,7 @@ Next.js app for club announcements, events, board order, chat, and member profil
 - **Supabase** (auth, database, RLS)
 - **Tailwind CSS** + shadcn/ui
 - **Web push** notifications (optional)
+- **Resend** email notifications (announcements + event reminders)
 
 ## Getting started
 
@@ -29,16 +30,35 @@ Open [http://localhost:3000](http://localhost:3000).
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Publishable / anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only — seed script, admin client |
 | `NEXT_PUBLIC_APP_URL` | Public site URL (set to `https://nchschessclub.com` in production) |
+| `RESEND_API_KEY` | Resend API key for email notifications |
+| `RESEND_FROM_EMAIL` | Sender, e.g. `NCHS Chess Club <notifications@nchschessclub.com>` |
+| `CRON_SECRET` | Random string — secures `/api/cron/event-reminders` (GitHub Actions + Vercel) |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Web push (optional) |
 | `VAPID_PRIVATE_KEY` | Web push (optional) |
 | `VAPID_SUBJECT` | Web push contact, e.g. `mailto:you@nchschessclub.com` |
 
-Email notifications (Resend) are not wired up yet — only push is active when VAPID keys are set.
+### Email notifications
+
+- **New announcement** — emails all members who opted in (default on)
+- **3 days before an event** — reminder to members who opted into event emails
+- **1 day before an enrolled event** — reminder to members signed up for that event
+
+Reminders run daily at **9:00 AM US Central** via **GitHub Actions** (free). See [`.github/workflows/event-reminders.yml`](.github/workflows/event-reminders.yml).
+
+Other free cron options: [cron-job.org](https://cron-job.org) or [Uptime Robot](https://uptimerobot.com) — ping `GET /api/cron/event-reminders` with header `Authorization: Bearer <CRON_SECRET>`.
+
+### GitHub Actions cron setup
+
+1. Push the repo (includes `.github/workflows/event-reminders.yml`).
+2. GitHub → **Settings → Secrets and variables → Actions → New repository secret**
+3. Add `CRON_SECRET` with the same value as in Vercel env vars.
+4. Optionally add `APP_URL` = `https://www.nchschessclub.com`.
+5. Test manually: **Actions → Event email reminders → Run workflow**.
 
 ## Database
 
 1. Run [`supabase/setup-schema.sql`](supabase/setup-schema.sql) in the Supabase SQL editor.
-2. If upgrading an existing project, apply incremental migrations (`migration-v6.sql` … `migration-v9.sql`) as needed.
+2. If upgrading an existing project, apply incremental migrations (`migration-v6.sql` … `migration-v10.sql`) as needed.
 3. Seed demo data: `npm run seed:mock`
 
 ## Project layout

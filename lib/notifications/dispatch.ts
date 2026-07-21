@@ -1,10 +1,9 @@
 import { appUrl } from "@/lib/app-url"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { announcementEmail } from "@/lib/notifications/email-templates"
+import { sendEmail } from "@/lib/notifications/email"
+import { getMemberRecipients } from "@/lib/notifications/recipients"
 import { sendPush } from "@/lib/notifications/push"
-
-type MemberRow = {
-  id: string
-}
+import { createAdminClient } from "@/lib/supabase/admin"
 
 function getAdminClient() {
   try {
@@ -12,20 +11,6 @@ function getAdminClient() {
   } catch {
     return null
   }
-}
-
-async function getMemberIds() {
-  const admin = getAdminClient()
-  if (!admin) return []
-
-  const { data, error } = await admin.from("profiles").select("id")
-
-  if (error) {
-    console.error("Failed to load members for notifications:", error.message)
-    return []
-  }
-
-  return (data ?? []) as MemberRow[]
 }
 
 async function getUserSubscriptions(userId: string) {
@@ -64,17 +49,32 @@ async function notifyUserPush(
   }
 }
 
-export async function notifyNewAnnouncement({ title }: { title: string }) {
-  const members = await getMemberIds()
+export async function notifyNewAnnouncement({
+  title,
+  body,
+}: {
+  title: string
+  body: string
+}) {
+  const members = await getMemberRecipients()
+  const { subject, html } = announcementEmail({ title, body })
 
   await Promise.allSettled(
-    members.map((member) =>
-      notifyUserPush(member.id, {
-        title: "New announcement",
-        body: title,
-        url: appUrl("/"),
-      })
-    )
+    members.map(async (member) => {
+      const tasks: Promise<unknown>[] = [
+        notifyUserPush(member.id, {
+          title: "New announcement",
+          body: title,
+          url: appUrl("/"),
+        }),
+      ]
+
+      if (member.preferences.email_announcements) {
+        tasks.push(sendEmail({ to: member.email, subject, html }))
+      }
+
+      await Promise.allSettled(tasks)
+    })
   )
 }
 
@@ -85,7 +85,7 @@ export async function notifyNewEvent({
   id: string
   title: string
 }) {
-  const members = await getMemberIds()
+  const members = await getMemberRecipients()
 
   await Promise.allSettled(
     members.map((member) =>

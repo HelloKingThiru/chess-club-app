@@ -162,7 +162,7 @@ export async function createMiniPostAction(
 
   if (published) {
     void import("@/lib/notifications/dispatch").then(({ notifyNewAnnouncement }) =>
-      notifyNewAnnouncement({ title })
+      notifyNewAnnouncement({ title, body })
     )
   }
 

@@ -1,11 +1,12 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { Bell, Loader2, Smartphone } from "lucide-react"
+import { Bell, Loader2, Mail, Smartphone } from "lucide-react"
 import { toast } from "sonner"
 
 import {
   removePushSubscriptionAction,
+  saveNotificationPreferencesAction,
   savePushSubscriptionAction,
 } from "@/app/actions/notifications"
 import { Button } from "@/components/ui/button"
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import type { NotificationPreferences } from "@/lib/types/notifications"
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4)
@@ -26,7 +28,18 @@ function urlBase64ToUint8Array(base64String: string) {
   return Uint8Array.from([...raw].map((char) => char.charCodeAt(0)))
 }
 
-export function NotificationSettingsCard() {
+type NotificationSettingsCardProps = {
+  initialPreferences: Pick<
+    NotificationPreferences,
+    "email_announcements" | "email_events" | "email_enrollment"
+  >
+}
+
+export function NotificationSettingsCard({
+  initialPreferences,
+}: NotificationSettingsCardProps) {
+  const [emailPrefs, setEmailPrefs] = useState(initialPreferences)
+  const [emailBusy, setEmailBusy] = useState(false)
   const [pushSupported, setPushSupported] = useState(false)
   const [pushSubscribed, setPushSubscribed] = useState(false)
   const [pushBusy, setPushBusy] = useState(false)
@@ -52,6 +65,32 @@ export function NotificationSettingsCard() {
   useEffect(() => {
     void checkPushSubscription()
   }, [checkPushSubscription])
+
+  async function updateEmailPreference(
+    key: keyof typeof emailPrefs,
+    enabled: boolean
+  ) {
+    const next = { ...emailPrefs, [key]: enabled }
+    setEmailPrefs(next)
+    setEmailBusy(true)
+
+    try {
+      const result = await saveNotificationPreferencesAction(next)
+      if (result.error) {
+        setEmailPrefs(emailPrefs)
+        toast.error(result.error)
+        return
+      }
+      toast.success("Email preferences updated.")
+    } catch (error) {
+      setEmailPrefs(emailPrefs)
+      toast.error(
+        error instanceof Error ? error.message : "Failed to save preferences."
+      )
+    } finally {
+      setEmailBusy(false)
+    }
+  }
 
   async function enablePushOnDevice() {
     setPushBusy(true)
@@ -149,6 +188,27 @@ export function NotificationSettingsCard() {
     }
   }
 
+  const emailOptions = [
+    {
+      id: "email-announcements",
+      key: "email_announcements" as const,
+      label: "New announcements",
+      description: "Email when a new club announcement is posted.",
+    },
+    {
+      id: "email-events",
+      key: "email_events" as const,
+      label: "Event reminders (3 days)",
+      description: "Email three days before any upcoming club event.",
+    },
+    {
+      id: "email-enrollment",
+      key: "email_enrollment" as const,
+      label: "Enrollment reminders (1 day)",
+      description: "Email one day before events you've signed up for.",
+    },
+  ]
+
   return (
     <Card>
       <CardHeader>
@@ -157,42 +217,79 @@ export function NotificationSettingsCard() {
           Notifications
         </CardTitle>
         <CardDescription>
-          Get browser alerts for new announcements, events, and enrollments on
-          this device.
+          Choose how you want to hear about announcements and events.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <Smartphone className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      <CardContent className="space-y-6">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Mail className="size-4 text-muted-foreground" />
+            Email
+          </div>
+          {emailOptions.map((option) => (
+            <div
+              key={option.id}
+              className="flex items-center justify-between gap-4 rounded-lg border p-3"
+            >
+              <div className="space-y-0.5">
+                <Label htmlFor={option.id} className="text-sm font-medium">
+                  {option.label}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {option.description}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {emailBusy ? (
+                  <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                ) : null}
+                <Switch
+                  id={option.id}
+                  checked={emailPrefs[option.key]}
+                  onCheckedChange={(checked) =>
+                    void updateEmailPreference(option.key, checked)
+                  }
+                  disabled={emailBusy}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Smartphone className="size-4 text-muted-foreground" />
+            Browser push
+          </div>
+          <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
             <div className="space-y-0.5">
               <Label htmlFor="push-device" className="text-sm font-medium">
                 This device
               </Label>
               <p className="text-xs text-muted-foreground">
                 {pushSupported
-                  ? "Browser pop-up alerts on this phone or computer."
+                  ? "Pop-up alerts on this phone or computer."
                   : "Not supported in this browser."}
               </p>
             </div>
+            {pushSupported ? (
+              <div className="flex items-center gap-2">
+                {pushBusy ? (
+                  <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                ) : null}
+                <Switch
+                  id="push-device"
+                  checked={pushSubscribed}
+                  onCheckedChange={(checked) => void onPushToggle(checked)}
+                  disabled={pushBusy}
+                />
+              </div>
+            ) : (
+              <Button type="button" variant="outline" size="sm" disabled>
+                Unavailable
+              </Button>
+            )}
           </div>
-          {pushSupported ? (
-            <div className="flex items-center gap-2">
-              {pushBusy ? (
-                <Loader2 className="size-4 animate-spin text-muted-foreground" />
-              ) : null}
-              <Switch
-                id="push-device"
-                checked={pushSubscribed}
-                onCheckedChange={(checked) => void onPushToggle(checked)}
-                disabled={pushBusy}
-              />
-            </div>
-          ) : (
-            <Button type="button" variant="outline" size="sm" disabled>
-              Unavailable
-            </Button>
-          )}
         </div>
       </CardContent>
     </Card>
