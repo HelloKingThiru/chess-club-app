@@ -208,7 +208,7 @@ export default async function AdminPage() {
         pastOrDraftEvents={pastOrDraftEvents}
         archivedEvents={archivedEvents}
         attendeeCounts={Object.fromEntries(counts)}
-        enrolledIds={enrolledIds}
+        enrolledIds={[...enrolledIds]}
       />
     </PageShell>
   )

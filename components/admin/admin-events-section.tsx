@@ -14,7 +14,7 @@ type AdminEventsSectionProps = {
   pastOrDraftEvents: Post[]
   archivedEvents: Post[]
   attendeeCounts: Record<string, number>
-  enrolledIds: Set<string>
+  enrolledIds: Iterable<string>
 }
 
 export function AdminEventsSection({
@@ -24,6 +24,8 @@ export function AdminEventsSection({
   attendeeCounts,
   enrolledIds,
 }: AdminEventsSectionProps) {
+  const enrolledSet = new Set(enrolledIds)
+
   return (
     <PageSection
       title="Manage events"
@@ -47,7 +49,7 @@ export function AdminEventsSection({
           embedded
           events={upcoming}
           attendeeCounts={attendeeCounts}
-          enrolledIds={[...enrolledIds]}
+          enrolledIds={[...enrolledSet]}
           editable
         />
 
@@ -62,7 +64,7 @@ export function AdminEventsSection({
                   key={event.id}
                   event={event}
                   attendeeCount={attendeeCounts[event.id] ?? 0}
-                  isEnrolled={enrolledIds.has(event.id)}
+                  isEnrolled={enrolledSet.has(event.id)}
                   editable
                 />
               ))}
@@ -79,7 +81,7 @@ export function AdminEventsSection({
                   key={event.id}
                   event={event}
                   attendeeCount={attendeeCounts[event.id] ?? 0}
-                  isEnrolled={enrolledIds.has(event.id)}
+                  isEnrolled={enrolledSet.has(event.id)}
                   editable
                 />
               ))}
