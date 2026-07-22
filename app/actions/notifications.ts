@@ -28,7 +28,8 @@ export async function getNotificationPreferences(): Promise<NotificationPreferen
     if (isMissingPreferencesTable(error.message)) {
       return defaultNotificationPreferences
     }
-    throw new Error(error.message)
+    console.error("Failed to load notification preferences:", error.message)
+    return defaultNotificationPreferences
   }
 
   if (!data) {

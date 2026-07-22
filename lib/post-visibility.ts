@@ -34,7 +34,9 @@ export function filterMemberEvents(posts: Post[], now = Date.now()) {
 }
 
 export function formatPinnedUntil(pinnedUntil: string) {
-  return new Date(pinnedUntil).toLocaleString(undefined, {
+  const date = new Date(pinnedUntil)
+  if (Number.isNaN(date.getTime())) return "soon"
+  return date.toLocaleString(undefined, {
     month: "short",
     day: "numeric",
     hour: "numeric",

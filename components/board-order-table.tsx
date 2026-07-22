@@ -1,11 +1,10 @@
-import dynamic from "next/dynamic"
-
 import {
   MAX_BOARD_SLOTS,
   buildBoardOrderState,
   shouldShowUnassigned,
 } from "@/lib/board-order"
 import type { Profile } from "@/lib/types/auth"
+import { BoardOrderEditable } from "@/components/board-order-editable"
 import {
   BoardOrderStats,
   BoardPlayerRow,
@@ -13,16 +12,6 @@ import {
   OpenBoardSlot,
   playerDisplayName,
 } from "@/components/board-order-ui"
-
-const BoardOrderDnD = dynamic(
-  () =>
-    import("@/components/board-order-dnd").then((mod) => mod.BoardOrderDnD),
-  {
-    loading: () => (
-      <p className="text-sm text-muted-foreground">Loading board order…</p>
-    ),
-  }
-)
 
 export function BoardOrderTable({
   players,
@@ -32,7 +21,7 @@ export function BoardOrderTable({
   editable?: boolean
 }) {
   if (editable) {
-    return <BoardOrderDnD players={players} editable />
+    return <BoardOrderEditable players={players} />
   }
 
   const { lineup, unassigned } = buildBoardOrderState(players)

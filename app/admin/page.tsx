@@ -71,7 +71,7 @@ export default async function AdminPage() {
 
   const supabase = await createClient()
 
-  const [{ data: profiles }, { data: posts }] = await Promise.all([
+  const [profilesResult, postsResult] = await Promise.all([
     supabase
       .from("profiles")
       .select(
@@ -84,8 +84,15 @@ export default async function AdminPage() {
       .order("created_at", { ascending: false }),
   ])
 
-  const players = (profiles ?? []) as Profile[]
-  const allPosts = (posts ?? []) as Post[]
+  if (profilesResult.error) {
+    console.error("Admin profiles query failed:", profilesResult.error.message)
+  }
+  if (postsResult.error) {
+    console.error("Admin posts query failed:", postsResult.error.message)
+  }
+
+  const players = (profilesResult.data ?? []) as Profile[]
+  const allPosts = (postsResult.data ?? []) as Post[]
   const announcements = allPosts.filter((post) => post.kind === "mini")
   const events = allPosts.filter((post) => post.kind === "specific")
   const memberEvents = filterMemberEvents(events)
@@ -107,6 +114,8 @@ export default async function AdminPage() {
     profile.id
   )
 
+  const dataError = profilesResult.error?.message ?? postsResult.error?.message
+
   return (
     <PageShell className="space-y-10">
       <PageHeader
@@ -114,6 +123,21 @@ export default async function AdminPage() {
         description="Everything you need to run the club — announcements, events, members, and board order."
         icon={Shield}
       />
+
+      {dataError ? (
+        <Card className="border-destructive/40 bg-destructive/5">
+          <CardHeader>
+            <CardTitle>Could not load all admin data</CardTitle>
+            <CardDescription>
+              {dataError.includes("archived_at") || dataError.includes("pinned_until")
+                ? "Run supabase/migration-v9.sql in the Supabase SQL editor, then reload this page."
+                : dataError.includes("grade_level") || dataError.includes("bio")
+                  ? "Run supabase/migration-v4.sql and migration-v5.sql in Supabase, then reload."
+                  : dataError}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
 
       <Card className="border-primary/30 bg-primary/5">
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
