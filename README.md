@@ -28,7 +28,7 @@ Open [http://localhost:3000](http://localhost:3000).
 |----------|---------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Publishable / anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-only — seed script, admin client |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only — admin client |
 | `NEXT_PUBLIC_APP_URL` | Public site URL (set to `https://nchschessclub.com` in production) |
 | `RESEND_API_KEY` | Resend API key for email notifications |
 | `RESEND_FROM_EMAIL` | Sender, e.g. `NCHS Chess Club <notifications@nchschessclub.com>` |
@@ -59,7 +59,8 @@ Other free cron options: [cron-job.org](https://cron-job.org) or [Uptime Robot](
 
 1. Run [`supabase/setup-schema.sql`](supabase/setup-schema.sql) in the Supabase SQL editor.
 2. If upgrading an existing project, apply incremental migrations (`migration-v6.sql` … `migration-v10.sql`) as needed.
-3. Seed demo data: `npm run seed:mock`
+3. If you previously seeded demo data, run [`supabase/cleanup-mock-data.sql`](supabase/cleanup-mock-data.sql) once to wipe it.
+4. Create member accounts from **Admin → Members**.
 
 ## Project layout
 
@@ -76,7 +77,6 @@ app/
   hooks/            # Client hooks
   lib/              # Auth, Supabase, helpers, types
   supabase/         # SQL schema & migrations
-  scripts/          # Seed & tooling
 ```
 
 ## Scripts
@@ -87,7 +87,6 @@ app/
 | `npm run build` | Production build |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | TypeScript check |
-| `npm run seed:mock` | Reset & seed demo club data |
 
 ## Deployment
 

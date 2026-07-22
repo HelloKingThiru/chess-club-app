@@ -1,5 +1,5 @@
 -- Full database setup for NCHS Chess Club. Run once in Supabase SQL Editor.
--- Safe to re-run. After this, run: npm run seed:mock
+-- Safe to re-run. Create admin accounts in the app after setup.
 
 -- ========== schema.sql ==========
 

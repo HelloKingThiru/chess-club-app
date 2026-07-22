@@ -9,9 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
-    "typecheck": "tsc --noEmit",
-    "seed:mock": "node scripts/seed-mock-data.mjs",
-    "repair:pins": "node scripts/repair-announcement-pins.mjs"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
