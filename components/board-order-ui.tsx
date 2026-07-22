@@ -1,3 +1,4 @@
+import type { HTMLAttributes } from "react"
 import Link from "next/link"
 import { ChevronRight, GripVertical, Trophy } from "lucide-react"
 
@@ -215,6 +216,8 @@ type BoardPlayerRowProps = {
   href?: string
   draggable?: boolean
   showEmail?: boolean
+  dragHandleProps?: HTMLAttributes<HTMLButtonElement>
+  isDragOverlay?: boolean
 }
 
 export function BoardPlayerRow({
@@ -223,22 +226,32 @@ export function BoardPlayerRow({
   href,
   draggable = false,
   showEmail = false,
+  dragHandleProps,
+  isDragOverlay = false,
 }: BoardPlayerRowProps) {
   const name = playerDisplayName(player)
   const meta = boardRankMeta(boardNumber)
   const grade =
     player.grade_level != null ? formatGradeLevel(player.grade_level) : null
   const role = roleLabel(player.role)
+  const { className: dragHandleClassName, ...dragHandleRest } =
+    dragHandleProps ?? {}
 
   const body = (
     <>
       {draggable ? (
-        <span
-          className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
-          aria-hidden
+        <button
+          type="button"
+          {...dragHandleRest}
+          className={cn(
+            "flex size-10 shrink-0 touch-none items-center justify-center rounded-lg bg-muted text-muted-foreground select-none",
+            "cursor-grab active:cursor-grabbing",
+            dragHandleClassName
+          )}
+          aria-label={`Drag ${name}`}
         >
           <GripVertical className="size-4" />
-        </span>
+        </button>
       ) : null}
 
       <BoardRankBadge boardNumber={boardNumber} />
@@ -306,7 +319,7 @@ export function BoardPlayerRow({
     "group flex items-center gap-3 rounded-xl border border-l-4 p-3 transition-colors sm:gap-4 sm:p-4",
     meta.rowClass,
     meta.accentClass,
-    draggable && "touch-manipulation shadow-lg ring-2 ring-primary/20",
+    isDragOverlay && "shadow-lg ring-2 ring-primary/20",
     href && !draggable && "hover:bg-accent/40"
   )
 

@@ -6,7 +6,7 @@ import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   closestCorners,
   useDroppable,
@@ -110,22 +110,17 @@ function SortablePlayer({
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.35 : 1,
+        opacity: isDragging ? 0 : 1,
       }}
       className="list-none"
     >
-      <div
-        {...attributes}
-        {...listeners}
-        className="cursor-grab touch-manipulation active:cursor-grabbing"
-      >
-        <BoardPlayerRow
-          player={player}
-          boardNumber={boardNumber}
-          draggable
-          showEmail
-        />
-      </div>
+      <BoardPlayerRow
+        player={player}
+        boardNumber={boardNumber}
+        draggable
+        showEmail
+        dragHandleProps={{ ...attributes, ...listeners }}
+      />
     </li>
   )
 }
@@ -195,10 +190,10 @@ function BoardOrderSections({
       : "Starting lineup"
   const lineupDescription = editable
     ? eventMode && showUnassigned
-      ? `Drag to set boards 1–${MAX_BOARD_SLOTS}. Board 1 is the strongest player.`
+      ? `Hold the grip handle (⋮⋮), then drag to set boards 1–${MAX_BOARD_SLOTS}.`
       : showUnassigned
-        ? `Drag players into the lineup for boards 1–${MAX_BOARD_SLOTS}. Reorder to change board numbers.`
-        : "Drag to reorder the list."
+        ? `Hold the grip handle (⋮⋮), then drag players into the lineup or bench.`
+        : "Hold the grip handle (⋮⋮), then drag to reorder."
     : "Board 1 is the strongest player. Lower numbers play higher boards."
 
   const benchTitle = "On the bench"
@@ -349,10 +344,29 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
     setState(showUnassigned ? built : collapseUnassigned(built))
   }, [buildState, players, showUnassigned])
 
+  useEffect(() => {
+    if (!activeId) return
+
+    const { body, documentElement } = document
+    const prevBodyOverflow = body.style.overflow
+    const prevHtmlOverflow = documentElement.style.overflow
+    const prevBodyTouchAction = body.style.touchAction
+
+    body.style.overflow = "hidden"
+    documentElement.style.overflow = "hidden"
+    body.style.touchAction = "none"
+
+    return () => {
+      body.style.overflow = prevBodyOverflow
+      documentElement.style.overflow = prevHtmlOverflow
+      body.style.touchAction = prevBodyTouchAction
+    }
+  }, [activeId])
+
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 150, tolerance: 8 },
+      activationConstraint: { delay: 120, tolerance: 6 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -529,6 +543,7 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
     <DndContext
       sensors={sensors}
       collisionDetection={closestCorners}
+      autoScroll={false}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
@@ -577,7 +592,7 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
           />
         </div>
       </div>
-      <DragOverlay dropAnimation={null}>
+      <DragOverlay dropAnimation={null} className="touch-none">
         {activePlayer ? (
           <BoardPlayerRow
             player={activePlayer}
@@ -588,6 +603,7 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
             }
             draggable
             showEmail
+            isDragOverlay
           />
         ) : null}
       </DragOverlay>
