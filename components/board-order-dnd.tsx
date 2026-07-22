@@ -44,11 +44,18 @@ import {
 } from "@/lib/board-order"
 import type { Profile } from "@/lib/types/auth"
 import { Button } from "@/components/ui/button"
+import { BoardOrderMobileEditor } from "@/components/board-order-mobile-editor"
 import {
   BoardPlayerRow,
   BoardSectionHeader,
   OpenBoardSlot,
 } from "@/components/board-order-ui"
+import {
+  applyBoardOrderMove,
+  boardOrderChanged,
+  lineupToSave,
+  type BoardOrderMove,
+} from "@/lib/board-order-moves"
 import { cn } from "@/lib/utils"
 
 const LINEUP_CONTAINER = "lineup"
@@ -190,10 +197,10 @@ function BoardOrderSections({
       : "Starting lineup"
   const lineupDescription = editable
     ? eventMode && showUnassigned
-      ? `Hold the grip handle (⋮⋮), then drag to set boards 1–${MAX_BOARD_SLOTS}.`
+      ? `Drag players to set boards 1–${MAX_BOARD_SLOTS}. Board 1 is the strongest.`
       : showUnassigned
-        ? `Hold the grip handle (⋮⋮), then drag players into the lineup or bench.`
-        : "Hold the grip handle (⋮⋮), then drag to reorder."
+        ? `Drag players between the lineup and bench. Up to ${MAX_BOARD_SLOTS} boards.`
+        : "Drag to reorder the list."
     : "Board 1 is the strongest player. Lower numbers play higher boards."
 
   const benchTitle = "On the bench"
@@ -490,6 +497,25 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
     return prev
   }
 
+  function handleMobileMove(move: BoardOrderMove) {
+    if (isSaving) return
+
+    const prev = stateRef.current
+    const next = applyBoardOrderMove(prev, move, { showUnassigned })
+    if (!next) {
+      if (move.type === "to-lineup") {
+        toast.error(`Maximum ${MAX_BOARD_SLOTS} boards.`)
+      }
+      return
+    }
+
+    setState(next)
+
+    if (boardOrderChanged(prev, next)) {
+      void persist(lineupToSave(next, showUnassigned))
+    }
+  }
+
   function handleDragStart(event: DragStartEvent) {
     if (isSaving) return
     setActiveId(event.active.id)
@@ -540,13 +566,7 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
   }
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      autoScroll={false}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
+    <>
       {eventMode && editable ? (
         <div className="mb-4 flex justify-end">
           <Button
@@ -584,29 +604,51 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
             isSaving && "pointer-events-none opacity-60"
           )}
         >
-          <BoardOrderSections
-            state={state}
-            editable
-            showUnassigned={showUnassigned}
-            eventMode={eventMode}
-          />
+          <div className="md:hidden">
+            <BoardOrderMobileEditor
+              state={state}
+              showUnassigned={showUnassigned}
+              eventMode={eventMode}
+              disabled={isSaving}
+              onMove={handleMobileMove}
+            />
+          </div>
+          <div className="hidden md:block">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCorners}
+              autoScroll={false}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <BoardOrderSections
+                state={state}
+                editable
+                showUnassigned={showUnassigned}
+                eventMode={eventMode}
+              />
+              <DragOverlay dropAnimation={null} className="touch-none">
+                {activePlayer ? (
+                  <BoardPlayerRow
+                    player={activePlayer}
+                    boardNumber={
+                      displayLineup.findIndex((p) => p.id === activePlayer.id) >=
+                      0
+                        ? displayLineup.findIndex(
+                            (p) => p.id === activePlayer.id
+                          ) + 1
+                        : null
+                    }
+                    draggable
+                    showEmail
+                    isDragOverlay
+                  />
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          </div>
         </div>
       </div>
-      <DragOverlay dropAnimation={null} className="touch-none">
-        {activePlayer ? (
-          <BoardPlayerRow
-            player={activePlayer}
-            boardNumber={
-              displayLineup.findIndex((p) => p.id === activePlayer.id) >= 0
-                ? displayLineup.findIndex((p) => p.id === activePlayer.id) + 1
-                : null
-            }
-            draggable
-            showEmail
-            isDragOverlay
-          />
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+    </>
   )
 }
