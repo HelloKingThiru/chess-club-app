@@ -1,6 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { connection } from "next/server"
 
 import { assertAdminTools } from "@/lib/admin-mode"
 import { requireProfile } from "@/lib/auth"
@@ -93,6 +94,7 @@ async function applyProfileUpdate(
 
   if (includeAdminFields) {
     try {
+      await connection()
       const admin = createAdminClient()
       const { data: existingProfile } = await admin
         .from("profiles")
@@ -227,6 +229,7 @@ export async function deleteProfileAction(profileId: string): Promise<ActionStat
   }
 
   try {
+    await connection()
     const admin = createAdminClient()
 
     const { data: targetProfile } = await admin

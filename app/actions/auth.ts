@@ -1,6 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { connection } from "next/server"
 import { redirect } from "next/navigation"
 
 import { assertAdminTools } from "@/lib/admin-mode"
@@ -68,6 +69,7 @@ export async function createUserAction(
   }
 
   try {
+    await connection()
     const admin = createAdminClient()
     const { data, error } = await admin.auth.admin.createUser({
       email,

@@ -79,7 +79,7 @@ Run through these on **production-like** env (`npm run build && npm run start`) 
 
 - **School or restrictive networks** may block or timeout Supabase; login failures are often network, not bad passwords.
 - **Email** is skipped silently if `RESEND_API_KEY` / `RESEND_FROM_EMAIL` are missing.
-- **Create/delete user and chat admin emails** need `SUPABASE_SERVICE_ROLE_KEY`.
+- **Create/delete user and chat admin emails** need `SUPABASE_SERVICE_ROLE_KEY` in `.env.local` locally and the same name in **Vercel → Environment Variables** for production (then deploy a new build).
 - **Chat live updates** need Realtime enabled for `chat_messages` in Supabase (see `migration-v8.sql`).
 - No guard preventing deletion of the **last** admin account—avoid removing all admins.
 
