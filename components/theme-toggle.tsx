@@ -67,3 +67,41 @@ export function ThemeToggle() {
     </DropdownMenu>
   )
 }
+
+const themeOptions = [
+  { value: "light", label: "Light", icon: Sun },
+  { value: "dark", label: "Dark", icon: Moon },
+  { value: "system", label: "System", icon: Monitor },
+] as const
+
+export function ThemePicker() {
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const active = mounted ? (theme ?? "system") : "system"
+
+  return (
+    <div className="grid grid-cols-3 gap-2" role="group" aria-label="Theme">
+      {themeOptions.map(({ value, label, icon: Icon }) => {
+        const selected = mounted && active === value
+        return (
+          <Button
+            key={value}
+            type="button"
+            variant={selected ? "secondary" : "outline"}
+            className="h-auto flex-col gap-1.5 py-2.5 text-xs"
+            aria-pressed={selected}
+            onClick={() => setTheme(value)}
+          >
+            <Icon className="size-4" />
+            {label}
+          </Button>
+        )
+      })}
+    </div>
+  )
+}

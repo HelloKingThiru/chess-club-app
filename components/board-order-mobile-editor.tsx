@@ -19,7 +19,6 @@ import type { BoardOrderMove } from "@/lib/board-order-moves"
 import {
   BoardPlayerRow,
   BoardSectionHeader,
-  OpenBoardSlot,
 } from "@/components/board-order-ui"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"

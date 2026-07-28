@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowRight, Check, MapPin, Users } from "lucide-react"
+import { ArrowRight, Check, Eye, MapPin, Users } from "lucide-react"
 
 import { eventTypeColors } from "@/lib/event-type-styles"
 import { isArchived } from "@/lib/post-visibility"
@@ -27,6 +27,7 @@ type UpcomingEventCardProps = {
   isEnrolled?: boolean
   compact?: boolean
   editable?: boolean
+  showAttendance?: boolean
 }
 
 export function UpcomingEventCard({
@@ -35,6 +36,7 @@ export function UpcomingEventCard({
   isEnrolled = false,
   compact = false,
   editable = false,
+  showAttendance = true,
 }: UpcomingEventCardProps) {
   const colors = event.event_type ? eventTypeColors[event.event_type] : null
   const archived = isArchived(event)
@@ -56,7 +58,7 @@ export function UpcomingEventCard({
               {eventTypeLabels[event.event_type]}
             </Badge>
           ) : null}
-          {isEnrolled ? (
+          {showAttendance && isEnrolled ? (
             <Badge variant="outline" className="gap-1 text-xs text-primary">
               <Check className="size-3" />
               Enrolled
@@ -70,6 +72,7 @@ export function UpcomingEventCard({
         <UpcomingEventMeta
           location={event.location}
           attendeeCount={attendeeCount}
+          showAttendance={showAttendance}
           className="mt-1 text-xs"
         />
       </Link>
@@ -94,19 +97,16 @@ export function UpcomingEventCard({
                   {eventTypeLabels[event.event_type]}
                 </Badge>
               ) : null}
-              {isEnrolled ? (
+              {showAttendance && isEnrolled ? (
                 <Badge variant="outline" className="gap-1 text-primary">
                   <Check className="size-3" />
                   You&apos;re enrolled
                 </Badge>
               ) : null}
-              {editable && !event.published ? (
-                <Badge variant="outline">Draft</Badge>
-              ) : null}
               {editable && archived ? (
                 <Badge variant="outline">Archived</Badge>
               ) : null}
-              {editable && isPast && event.published && !archived ? (
+              {editable && isPast && !archived ? (
                 <Badge variant="outline">Past</Badge>
               ) : null}
             </div>
@@ -119,11 +119,16 @@ export function UpcomingEventCard({
         </div>
       </CardHeader>
       <CardContent className="flex-1">
-        <UpcomingEventMeta location={event.location} attendeeCount={attendeeCount} />
+        <UpcomingEventMeta
+          location={event.location}
+          attendeeCount={attendeeCount}
+          showAttendance={showAttendance}
+        />
       </CardContent>
       <CardFooter className="flex w-full flex-col items-stretch gap-2 sm:flex-row">
         <Button className="w-full sm:flex-1" variant="default" size="sm" asChild>
           <Link href={`/event/${event.id}`}>
+            <Eye className="size-4" />
             {editable
               ? "Open event"
               : isEnrolled
@@ -140,18 +145,22 @@ export function UpcomingEventCard({
 function UpcomingEventMeta({
   location,
   attendeeCount,
+  showAttendance = true,
   className,
 }: {
   location: string | null
   attendeeCount: number
+  showAttendance?: boolean
   className?: string
 }) {
   return (
     <div className={cn("flex flex-wrap items-center gap-3 text-sm text-muted-foreground", className)}>
-      <span className="inline-flex items-center gap-1">
-        <Users className="size-3.5" />
-        {attendeeCount} attending
-      </span>
+      {showAttendance ? (
+        <span className="inline-flex items-center gap-1">
+          <Users className="size-3.5" />
+          {attendeeCount} attending
+        </span>
+      ) : null}
       {location ? (
         <span className="inline-flex items-center gap-1">
           <MapPin className="size-3.5" />

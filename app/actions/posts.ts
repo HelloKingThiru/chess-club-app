@@ -2,23 +2,14 @@
 
 import { revalidatePath } from "next/cache"
 
+import { parseAnnouncementPin } from "@/lib/announcement-pin"
 import { assertAdminTools } from "@/lib/admin-mode"
+import { memberDisplayNameForProfile } from "@/lib/event-attendees"
 import { requireProfile } from "@/lib/auth"
-import {
-  computePinnedUntil,
-  shouldBulkArchive,
-} from "@/lib/post-visibility"
+import { shouldBulkArchive } from "@/lib/post-visibility"
 import { createClient } from "@/lib/supabase/server"
 import type { ActionState } from "@/lib/types/auth"
 import type { EventType, MiniKind, Post } from "@/lib/types/posts"
-
-function parsePinnedUntil(formData: FormData, published: boolean) {
-  if (!published) return null
-  const pinMode = String(formData.get("pin_mode") ?? "none")
-  const pinPreset = String(formData.get("pin_preset") ?? "1w")
-  const pinUntil = String(formData.get("pin_until") ?? "")
-  return computePinnedUntil(pinMode, pinPreset, pinUntil)
-}
 
 function revalidatePostPaths(kind: Post["kind"], postId?: string) {
   revalidatePath("/")
@@ -43,7 +34,6 @@ export async function createSpecificPostAction(
   const eventType = String(formData.get("event_type") ?? "") as EventType
   const eventDate = String(formData.get("event_date") ?? "").trim()
   const location = String(formData.get("location") ?? "").trim()
-  const published = formData.get("published") === "on"
 
   if (!title || !body || !eventDate || !eventType) {
     return { error: "Title, type, date, and description are required." }
@@ -56,17 +46,20 @@ export async function createSpecificPostAction(
     event_type: eventType,
     event_date: new Date(eventDate).toISOString(),
     location: location || null,
-    published,
+    published: true,
     author_id: admin.id,
-  }).select("id, title, event_date, location").single()
+  }).select("id, title, body, event_date, location").single()
 
   if (error) return { error: error.message }
 
-  if (published && data) {
+  if (data) {
     void import("@/lib/notifications/dispatch").then(({ notifyNewEvent }) =>
       notifyNewEvent({
         id: data.id,
         title: data.title,
+        body: data.body,
+        eventDate: data.event_date,
+        location: data.location,
       })
     )
   }
@@ -91,7 +84,6 @@ export async function updateSpecificPostAction(
   const eventType = String(formData.get("event_type") ?? "") as EventType
   const eventDate = String(formData.get("event_date") ?? "").trim()
   const location = String(formData.get("location") ?? "").trim()
-  const published = formData.get("published") === "on"
 
   if (!title || !body || !eventDate || !eventType) {
     return { error: "Title, type, date, and description are required." }
@@ -116,7 +108,7 @@ export async function updateSpecificPostAction(
       event_type: eventType,
       event_date: new Date(eventDate).toISOString(),
       location: location || null,
-      published,
+      published: true,
       updated_at: new Date().toISOString(),
     })
     .eq("id", postId)
@@ -142,8 +134,8 @@ export async function createMiniPostAction(
   const title = String(formData.get("title") ?? "").trim()
   const body = String(formData.get("body") ?? "").trim()
   const miniKind = String(formData.get("mini_kind") ?? "update") as MiniKind
-  const published = formData.get("published") === "on"
-  const pinnedUntil = parsePinnedUntil(formData, published)
+  const pin = parseAnnouncementPin(formData)
+  if ("error" in pin) return { error: pin.error }
 
   if (!title || !body) return { error: "Title and body are required." }
 
@@ -153,18 +145,18 @@ export async function createMiniPostAction(
     body,
     mini_kind: miniKind,
     event_date: new Date().toISOString(),
-    published,
-    pinned_until: pinnedUntil,
+    published: true,
+    pinned_from: pin.pinned_from,
+    pinned_until: pin.pinned_until,
+    pin_indefinite: pin.pin_indefinite,
     author_id: admin.id,
   })
 
   if (error) return { error: error.message }
 
-  if (published) {
-    void import("@/lib/notifications/dispatch").then(({ notifyNewAnnouncement }) =>
-      notifyNewAnnouncement({ title, body })
-    )
-  }
+  void import("@/lib/notifications/dispatch").then(({ notifyNewAnnouncement }) =>
+    notifyNewAnnouncement({ title, body })
+  )
 
   revalidatePath("/")
   revalidatePath("/admin")
@@ -183,8 +175,8 @@ export async function updateMiniPostAction(
   const title = String(formData.get("title") ?? "").trim()
   const body = String(formData.get("body") ?? "").trim()
   const miniKind = String(formData.get("mini_kind") ?? "update") as MiniKind
-  const published = formData.get("published") === "on"
-  const pinnedUntil = parsePinnedUntil(formData, published)
+  const pin = parseAnnouncementPin(formData)
+  if ("error" in pin) return { error: pin.error }
 
   if (!title || !body) return { error: "Title and body are required." }
 
@@ -205,8 +197,10 @@ export async function updateMiniPostAction(
       title,
       body,
       mini_kind: miniKind,
-      published,
-      pinned_until: pinnedUntil,
+      published: true,
+      pinned_from: pin.pinned_from,
+      pinned_until: pin.pinned_until,
+      pin_indefinite: pin.pin_indefinite,
       updated_at: new Date().toISOString(),
     })
     .eq("id", postId)
@@ -380,7 +374,9 @@ export async function pinPostAction(
   const { error } = await supabase
     .from("posts")
     .update({
+      pinned_from: date.toISOString(),
       pinned_until: date.toISOString(),
+      pin_indefinite: false,
       updated_at: new Date().toISOString(),
     })
     .eq("id", postId)
@@ -410,7 +406,9 @@ export async function unpinPostAction(postId: string): Promise<ActionState> {
   const { error } = await supabase
     .from("posts")
     .update({
+      pinned_from: null,
       pinned_until: null,
+      pin_indefinite: false,
       updated_at: new Date().toISOString(),
     })
     .eq("id", postId)
@@ -428,9 +426,12 @@ export async function addEventAttendeeAction(
   const auth = await assertAdminTools()
   if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
-  const { error } = await supabase
-    .from("event_attendees")
-    .upsert({ event_id: eventId, user_id: userId })
+  const displayName = await memberDisplayNameForProfile(supabase, userId)
+  const { error } = await supabase.from("event_attendees").upsert({
+    event_id: eventId,
+    user_id: userId,
+    display_name: displayName,
+  })
 
   if (error) return { error: error.message }
   revalidatePath(`/event/${eventId}`)
@@ -472,6 +473,8 @@ export async function joinEventAction(eventId: string): Promise<ActionState> {
   const { error } = await supabase.from("event_attendees").upsert({
     event_id: eventId,
     user_id: profile.id,
+    display_name:
+      profile.full_name?.trim() || profile.email?.trim() || "Member",
   })
 
   if (error) return { error: error.message }
@@ -542,11 +545,13 @@ export async function saveEventBoardOrderAction(
     const { error: insertError } = await supabase
       .from("event_board_order")
       .insert(
-        lineupIds.map((userId, index) => ({
-          event_id: eventId,
-          user_id: userId,
-          board_number: index + 1,
-        }))
+        lineupIds
+          .filter((userId) => !userId.startsWith("deleted:"))
+          .map((userId, index) => ({
+            event_id: eventId,
+            user_id: userId,
+            board_number: index + 1,
+          }))
       )
 
     if (insertError) return { error: insertError.message }

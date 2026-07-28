@@ -13,6 +13,7 @@ type ComingUpSectionProps = {
   showCalendarLink?: boolean
   editable?: boolean
   embedded?: boolean
+  showMemberFeatures?: boolean
 }
 
 export function ComingUpSection({
@@ -22,6 +23,7 @@ export function ComingUpSection({
   showCalendarLink = false,
   editable = false,
   embedded = false,
+  showMemberFeatures = true,
 }: ComingUpSectionProps) {
   const enrolledSet = new Set(enrolledIds)
 
@@ -33,7 +35,10 @@ export function ComingUpSection({
         action={
           showCalendarLink ? (
             <Button variant="outline" asChild>
-              <Link href="/calendar">Go to calendar</Link>
+              <Link href="/calendar">
+                <Calendar className="size-4" />
+                Go to calendar
+              </Link>
             </Button>
           ) : undefined
         }
@@ -47,6 +52,7 @@ export function ComingUpSection({
             attendeeCount={attendeeCounts[event.id] ?? 0}
             isEnrolled={enrolledSet.has(event.id)}
             editable={editable}
+            showAttendance={showMemberFeatures}
           />
         ))}
       </div>
@@ -60,7 +66,9 @@ export function ComingUpSection({
       description={
         editable
           ? "Edit events here, or open one to manage attendees."
-          : "Tap an event to see details and enroll."
+          : showMemberFeatures
+            ? "Tap an event to see details and enroll."
+            : "Tap an event to see details."
       }
       icon={Calendar}
       action={

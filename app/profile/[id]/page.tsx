@@ -3,6 +3,12 @@ import { notFound } from "next/navigation"
 import { Calendar, GraduationCap, Mail, MapPin, Phone, Shield, User } from "lucide-react"
 
 import { getProfile } from "@/lib/auth"
+import { canUseAdminTools } from "@/lib/admin-mode"
+import {
+  MEMBER_PROFILE_COLUMNS,
+  PUBLIC_PROFILE_COLUMNS,
+  toProfile,
+} from "@/lib/guest-access"
 import { createClient } from "@/lib/supabase/server"
 import { formatGradeLevel } from "@/lib/grade-level"
 import { roleLabel } from "@/lib/roles"
@@ -28,6 +34,8 @@ import {
 } from "@/components/ui/card"
 import type { Post } from "@/lib/types/posts"
 import { eventTypeLabels } from "@/lib/types/posts"
+import { formatClubDateTime } from "@/lib/club-datetime"
+import { cn } from "@/lib/utils"
 
 function initials(name: string | null, email: string) {
   const source = name || email
@@ -39,15 +47,25 @@ function initials(name: string | null, email: string) {
     .toUpperCase()
 }
 
-function ProfileViewCard({ profile }: { profile: Profile }) {
+function ProfileViewCard({
+  profile,
+  showContact,
+}: {
+  profile: Profile
+  showContact: boolean
+}) {
   const fields = [
     { label: "Full name", icon: User, value: profile.full_name || "Not set" },
-    { label: "Email", icon: Mail, value: profile.email },
-    {
-      label: "Phone",
-      icon: Phone,
-      value: formatPhoneDisplay(profile.phone_number),
-    },
+    ...(showContact
+      ? [
+          { label: "Email", icon: Mail, value: profile.email },
+          {
+            label: "Phone",
+            icon: Phone,
+            value: formatPhoneDisplay(profile.phone_number),
+          },
+        ]
+      : []),
     {
       label: "Grade level",
       icon: GraduationCap,
@@ -110,47 +128,97 @@ type ProfilePageProps = {
 export default async function ProfilePage({ params }: ProfilePageProps) {
   const { id } = await params
   const currentUser = await getProfile()
+  const isGuest = !currentUser
+  const isOwnProfile = currentUser?.id === id
+  const usePublicProfile =
+    !isOwnProfile && (!currentUser || currentUser.role !== "admin")
   const supabase = await createClient()
 
-  const { data: profileRow } = await supabase
-    .from("profiles")
-    .select("id, email, full_name, phone_number, board_number, grade_level, bio, role, created_at")
-    .eq("id", id)
-    .maybeSingle()
+  const { data: profileRow } = usePublicProfile
+    ? await supabase
+        .from("public_profiles")
+        .select(PUBLIC_PROFILE_COLUMNS)
+        .eq("id", id)
+        .maybeSingle()
+    : await supabase
+        .from("profiles")
+        .select(MEMBER_PROFILE_COLUMNS)
+        .eq("id", id)
+        .maybeSingle()
 
   if (!profileRow) notFound()
 
-  const profile = profileRow as Profile
-  const isOwnProfile = currentUser?.id === profile.id
+  const profile = toProfile(profileRow as Record<string, unknown>)
+  const showContact = Boolean(currentUser) && (isOwnProfile || currentUser?.role === "admin")
+  const canManageProfile =
+    Boolean(currentUser) &&
+    currentUser!.role === "admin" &&
+    !isOwnProfile &&
+    (await canUseAdminTools(currentUser))
   const notificationPreferences = isOwnProfile
     ? await getNotificationPreferences()
     : null
 
-  const { data: attendance } = await supabase
-    .from("event_attendees")
-    .select("posts(id, title, event_type, event_date, location, kind)")
-    .eq("user_id", id)
+  let events: Array<
+    Pick<Post, "id" | "title" | "event_type" | "event_date" | "location" | "kind"> & {
+      status: "active" | "archived"
+    }
+  > = []
 
-  type AttendanceRow = {
-    posts:
-      | Pick<Post, "id" | "title" | "event_type" | "event_date" | "location" | "kind">
-      | Pick<Post, "id" | "title" | "event_type" | "event_date" | "location" | "kind">[]
-      | null
+  if (!isGuest) {
+    const { data: attendance } = await supabase
+      .from("event_attendees")
+      .select(
+        "posts(id, title, event_type, event_date, location, kind, archived_at)"
+      )
+      .eq("user_id", id)
+
+    type AttendanceRow = {
+      posts:
+        | (Pick<
+            Post,
+            | "id"
+            | "title"
+            | "event_type"
+            | "event_date"
+            | "location"
+            | "kind"
+            | "archived_at"
+          >)
+        | Pick<
+            Post,
+            | "id"
+            | "title"
+            | "event_type"
+            | "event_date"
+            | "location"
+            | "kind"
+            | "archived_at"
+          >[]
+        | null
+    }
+
+    function unwrapPost(value: AttendanceRow["posts"]) {
+      if (!value) return null
+      return Array.isArray(value) ? value[0] ?? null : value
+    }
+
+    events = ((attendance ?? []) as AttendanceRow[])
+      .map((row) => unwrapPost(row.posts))
+      .filter((post): post is NonNullable<typeof post> => post?.kind === "specific")
+      .map((post) => ({
+        id: post.id,
+        title: post.title,
+        event_type: post.event_type,
+        event_date: post.event_date,
+        location: post.location,
+        kind: post.kind,
+        status: post.archived_at ? ("archived" as const) : ("active" as const),
+      }))
+      .sort(
+        (a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime()
+      )
   }
-
-  function unwrapPost(
-    value: AttendanceRow["posts"]
-  ): Pick<Post, "id" | "title" | "event_type" | "event_date" | "location" | "kind"> | null {
-    if (!value) return null
-    return Array.isArray(value) ? value[0] ?? null : value
-  }
-
-  const events = ((attendance ?? []) as AttendanceRow[])
-    .map((row) => unwrapPost(row.posts))
-    .filter((post): post is NonNullable<typeof post> => post?.kind === "specific")
-    .sort(
-      (a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime()
-    )
 
 
   return (
@@ -160,7 +228,11 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
         description={
           isOwnProfile
             ? "Update your contact info and see events you've attended."
-            : "Contact info and events this member has joined."
+            : canManageProfile
+              ? "Edit or remove this member's account (admin mode)."
+              : isGuest
+              ? "Public club profile."
+              : "Contact info and events this member has joined."
         }
         icon={User}
       />
@@ -179,61 +251,80 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
             }}
           />
         </>
+      ) : canManageProfile ? (
+        <ProfileInfoCard
+          profile={profile}
+          canEditPhone
+          variant="managed"
+        />
       ) : (
-        <ProfileViewCard profile={profile} />
+        <ProfileViewCard profile={profile} showContact={showContact} />
       )}
 
-      <PageSection
-        title="Events attended"
-        description="Tournaments and club events this member enrolled in."
-        icon={Calendar}
-      >
-        {events.length === 0 ? (
-          <EmptyState
-            title="No events yet"
-            description={
-              isOwnProfile
-                ? "Enroll in an upcoming event from the home page or calendar."
-                : "This member hasn't enrolled in any events yet."
-            }
-          />
-        ) : (
-          <div className="grid gap-3">
-            {events.map((event) => (
-              <Link key={event.id} href={`/event/${event.id}`}>
-                <Card className="transition-colors hover:bg-accent/40">
-                  <CardHeader className="pb-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {event.event_type ? (
-                        <Badge>{eventTypeLabels[event.event_type]}</Badge>
-                      ) : null}
-                      <CardTitle className="text-base">{event.title}</CardTitle>
-                    </div>
-                    <CardDescription className="flex flex-wrap items-center gap-3">
-                      <span className="inline-flex items-center gap-1">
-                        <Calendar className="size-3.5" />
-                        {new Date(event.event_date).toLocaleString(undefined, {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                      {event.location ? (
+      {!isGuest ? (
+        <PageSection
+          title="Events attended"
+          description="Tournaments and club events this member enrolled in."
+          icon={Calendar}
+        >
+          {events.length === 0 ? (
+            <EmptyState
+              title="No events yet"
+              description={
+                isOwnProfile
+                  ? "Enroll in an upcoming event from the home page or calendar."
+                  : "This member hasn't enrolled in any events yet."
+              }
+            />
+          ) : (
+            <div className="grid gap-3">
+              {events.map((event) => {
+                const archived = event.status === "archived"
+                const card = (
+                  <Card
+                    className={cn(
+                      "transition-colors",
+                      archived
+                        ? "border-dashed opacity-75"
+                        : "hover:bg-accent/40"
+                    )}
+                  >
+                    <CardHeader className="pb-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {archived ? (
+                          <Badge variant="outline">Archived</Badge>
+                        ) : null}
+                        {event.event_type ? (
+                          <Badge>{eventTypeLabels[event.event_type]}</Badge>
+                        ) : null}
+                        <CardTitle className="text-base">{event.title}</CardTitle>
+                      </div>
+                      <CardDescription className="flex flex-wrap items-center gap-3">
                         <span className="inline-flex items-center gap-1">
-                          <MapPin className="size-3.5" />
-                          {event.location}
+                          <Calendar className="size-3.5" />
+                          {formatClubDateTime(event.event_date, "long")}
                         </span>
-                      ) : null}
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        )}
-      </PageSection>
+                        {event.location ? (
+                          <span className="inline-flex items-center gap-1">
+                            <MapPin className="size-3.5" />
+                            {event.location}
+                          </span>
+                        ) : null}
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
+                )
+
+                return (
+                  <Link key={event.id} href={`/event/${event.id}`}>
+                    {card}
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+        </PageSection>
+      ) : null}
     </PageShell>
   )
 }

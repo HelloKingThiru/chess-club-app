@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { Bell, Loader2, Mail, Smartphone } from "lucide-react"
+import { Ban, Bell, Loader2, Mail, Smartphone } from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -198,8 +198,9 @@ export function NotificationSettingsCard({
     {
       id: "email-events",
       key: "email_events" as const,
-      label: "Event reminders (3 days)",
-      description: "Email three days before any upcoming club event.",
+      label: "Event emails",
+      description:
+        "Email when a new event is posted and three days before upcoming events.",
     },
     {
       id: "email-enrollment",
@@ -286,6 +287,7 @@ export function NotificationSettingsCard({
               </div>
             ) : (
               <Button type="button" variant="outline" size="sm" disabled>
+                <Ban className="size-4" />
                 Unavailable
               </Button>
             )}

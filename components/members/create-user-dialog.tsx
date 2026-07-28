@@ -9,6 +9,7 @@ import { useActionToasts } from "@/hooks/use-action-toasts"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -18,7 +19,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { NativeSelect } from "@/components/ui/native-select"
+import { FormSelect } from "@/components/ui/form-select"
 import { PhoneInput } from "@/components/phone-input"
 
 const initial: ActionState = {}
@@ -64,14 +65,18 @@ export function CreateUserDialog({
           </Button>
         </DialogTrigger>
       ) : null}
-      <DialogContent className="max-h-[90svh] overflow-y-auto">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Create member</DialogTitle>
           <DialogDescription>
             Add a member account with email and password.
           </DialogDescription>
         </DialogHeader>
-        <form action={formAction} className="space-y-4">
+        <form
+          action={formAction}
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        >
+          <DialogBody className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="cu-full_name">Full name</Label>
@@ -103,12 +108,18 @@ export function CreateUserDialog({
             </div>
             <div className="space-y-2">
               <Label htmlFor="cu-role">Role</Label>
-              <NativeSelect id="cu-role" name="role" defaultValue="regular">
-                <option value="regular">Member</option>
-                <option value="admin">Admin</option>
-              </NativeSelect>
+              <FormSelect
+                id="cu-role"
+                name="role"
+                defaultValue="regular"
+                options={[
+                  { value: "regular", label: "Member" },
+                  { value: "admin", label: "Admin" },
+                ]}
+              />
             </div>
           </div>
+          </DialogBody>
           <DialogFooter>
             <Button type="submit" size="lg" disabled={pending} className="w-full sm:w-auto">
               {pending ? (

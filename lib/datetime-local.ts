@@ -1,8 +1,8 @@
-/** Format an ISO date for `<input type="datetime-local" />`. */
-export function toDatetimeLocalValue(iso: string) {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return ""
+import { parseClubDateTimeParts } from "@/lib/club-datetime"
 
-  const pad = (value: number) => String(value).padStart(2, "0")
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+/** @deprecated Prefer ClubDateTimePicker and club-datetime helpers. */
+export function toDatetimeLocalValue(iso: string) {
+  const parts = parseClubDateTimeParts(iso)
+  if (!parts) return ""
+  return `${parts.date.getFullYear()}-${String(parts.date.getMonth() + 1).padStart(2, "0")}-${String(parts.date.getDate()).padStart(2, "0")}T${parts.time}`
 }

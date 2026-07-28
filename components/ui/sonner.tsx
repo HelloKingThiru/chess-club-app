@@ -13,6 +13,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
     setMounted(true)
   }, [])
 
+  if (!mounted) {
+    return null
+  }
+
   return (
     <Sonner
       theme={(mounted ? theme : "system") as ToasterProps["theme"]}

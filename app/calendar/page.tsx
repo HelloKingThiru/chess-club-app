@@ -8,6 +8,7 @@ import { ClubCalendar } from "@/components/events/club-calendar"
 import { ComingUpSection } from "@/components/events/coming-up-section"
 import { EventDialog } from "@/components/posts/event-dialog"
 import { PageHeader, PageShell } from "@/components/page-shell"
+import { clubTodayYmd } from "@/lib/club-datetime"
 import type { Post } from "@/lib/types/posts"
 import { Calendar } from "lucide-react"
 
@@ -25,10 +26,12 @@ export default async function CalendarPage() {
 
   const events = filterMemberEvents((posts ?? []) as Post[])
   const upcoming = getUpcomingEvents(events)
-  const { counts, enrolledIds } = await getEventAttendanceMeta(
-    upcoming.map((event) => event.id),
-    profile?.id
-  )
+  const { counts, enrolledIds } = profile
+    ? await getEventAttendanceMeta(
+        upcoming.map((event) => event.id),
+        profile.id
+      )
+    : { counts: new Map<string, number>(), enrolledIds: new Set<string>() }
 
   return (
     <PageShell className="space-y-10">
@@ -39,13 +42,18 @@ export default async function CalendarPage() {
         action={showAdmin ? <EventDialog /> : null}
       />
 
-      <ClubCalendar events={events} />
+      <ClubCalendar
+        events={events}
+        canCreateEvent={showAdmin}
+        initialDayYmd={clubTodayYmd()}
+      />
 
       <ComingUpSection
         events={upcoming}
         attendeeCounts={Object.fromEntries(counts)}
         enrolledIds={[...enrolledIds]}
         editable={showAdmin}
+        showMemberFeatures={Boolean(profile)}
       />
     </PageShell>
   )

@@ -1,7 +1,9 @@
 export type ChatThreadSummary = {
   id: string
   memberId: string
+  adminId: string
   memberName: string | null
+  adminName: string | null
   gradeLevel: number | null
   boardNumber: number | null
   lastMessageBody: string | null
@@ -20,12 +22,12 @@ export type ChatMessage = {
   createdAt: string
 }
 
-/** Admin view: every player, with optional existing thread */
+/** Sidebar row for admin (member) or member (admin) chat picker */
 export type ChatDirectoryEntry = {
-  memberId: string
-  memberName: string | null
-  gradeLevel: number | null
-  boardNumber: number | null
+  contactId: string
+  contactName: string | null
+  contactSubtitle: string
+  contactBadge?: string | null
   threadId: string | null
   lastMessageBody: string | null
   lastMessageAt: string | null

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation"
 
 import { assertAdminTools } from "@/lib/admin-mode"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { loginErrorMessage } from "@/lib/supabase/auth-errors"
 import { createClient } from "@/lib/supabase/server"
 import type { ActionState, UserRole } from "@/lib/types/auth"
 
@@ -12,7 +13,9 @@ export async function loginAction(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const email = String(formData.get("email") ?? "").trim()
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase()
   const password = String(formData.get("password") ?? "")
 
   if (!email || !password) {
@@ -23,7 +26,10 @@ export async function loginAction(
   const { error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
-    return { error: "Invalid email or password." }
+    if (process.env.NODE_ENV === "development") {
+      console.error("[loginAction]", error.message, error.cause ?? "")
+    }
+    return { error: loginErrorMessage(error) }
   }
 
   redirect("/")
@@ -47,7 +53,6 @@ export async function createUserAction(
   const email = String(formData.get("email") ?? "").trim()
   const password = String(formData.get("password") ?? "")
   const phoneNumber = String(formData.get("phone_number") ?? "").trim()
-  const boardNumberRaw = String(formData.get("board_number") ?? "").trim()
   const role = String(formData.get("role") ?? "regular") as UserRole
 
   if (!fullName || !email || !password) {
@@ -62,11 +67,6 @@ export async function createUserAction(
     return { error: "Invalid role selected." }
   }
 
-  const boardNumber = boardNumberRaw ? Number(boardNumberRaw) : null
-  if (boardNumberRaw && Number.isNaN(boardNumber)) {
-    return { error: "Board number must be a number." }
-  }
-
   try {
     const admin = createAdminClient()
     const { data, error } = await admin.auth.admin.createUser({
@@ -77,7 +77,6 @@ export async function createUserAction(
         full_name: fullName,
         role,
         phone_number: phoneNumber || null,
-        board_number: boardNumber,
       },
     })
 
@@ -85,10 +84,9 @@ export async function createUserAction(
       return { error: error.message }
     }
 
-    if (data.user && (phoneNumber || boardNumber)) {
+    if (data.user && phoneNumber) {
       await admin.from("profiles").update({
         phone_number: phoneNumber || null,
-        board_number: boardNumber,
       }).eq("id", data.user.id)
     }
 

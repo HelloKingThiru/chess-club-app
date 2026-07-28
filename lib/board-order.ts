@@ -72,7 +72,10 @@ export function buildBoardOrderState(players: Profile[]): BoardOrderState {
   )
 }
 
-export type EventBoardPlayer = Profile & { eventBoard?: number | null }
+export type EventBoardPlayer = Profile & {
+  eventBoard?: number | null
+  memberDeleted?: boolean
+}
 
 export function hasSavedEventBoardOrder(players: EventBoardPlayer[]) {
   return players.some((player) => player.eventBoard != null)

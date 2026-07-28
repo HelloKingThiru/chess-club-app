@@ -1,3 +1,4 @@
+import { formatClubDateTime } from "@/lib/club-datetime"
 import type { Post } from "@/lib/types/posts"
 
 export function isEventPast(eventDate: string, now = Date.now()) {
@@ -18,21 +19,5 @@ export function getUpcomingEvents(events: Post[], now = Date.now()) {
 }
 
 export function formatEventDateTime(date: string, style: "short" | "long" = "short") {
-  if (style === "long") {
-    return new Date(date).toLocaleString(undefined, {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    })
-  }
-
-  return new Date(date).toLocaleString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  })
+  return formatClubDateTime(date, style)
 }

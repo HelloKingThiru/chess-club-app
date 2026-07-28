@@ -21,7 +21,7 @@ export function AdminAnnouncementsSection({
   return (
     <PageSection
       title="Announcements"
-      description="Pin announcements to show them on Home. Archive old posts to hide them from members."
+      description="Pin announcements to Home. Archive old posts to hide them from members."
       icon={Megaphone}
       action={
         <div className="flex flex-wrap gap-2">

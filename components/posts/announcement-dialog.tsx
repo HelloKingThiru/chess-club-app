@@ -4,18 +4,23 @@ import { useActionState, useEffect, useState } from "react"
 import { Loader2, Megaphone, Pencil, Plus, Save } from "lucide-react"
 
 import {
+  inferAnnouncementPinStrategy,
+  type AnnouncementPinStrategy,
+} from "@/lib/announcement-pin"
+import {
   createMiniPostAction,
   updateMiniPostAction,
 } from "@/app/actions/posts"
-import { toDatetimeLocalValue } from "@/lib/datetime-local"
-import { isPinned, pinPresetLabels, type PinPreset } from "@/lib/post-visibility"
+import { ClubDateTimePicker } from "@/components/club-datetime-picker"
 import type { ActionState } from "@/lib/types/auth"
 import type { Post } from "@/lib/types/posts"
 import { miniKindLabels } from "@/lib/types/posts"
+import { pinPresetLabels, type PinPreset } from "@/lib/post-visibility"
 import { useActionToasts } from "@/hooks/use-action-toasts"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -23,17 +28,32 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { FormSelect, SimpleSelect } from "@/components/ui/form-select"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { NativeSelect } from "@/components/ui/native-select"
 import { Textarea } from "@/components/ui/textarea"
 
 const initial: ActionState = {}
 
-function defaultPinMode(post?: Post) {
-  if (!post?.pinned_until) return "none"
-  return "custom"
+const pinStrategyLabels: Record<AnnouncementPinStrategy, string> = {
+  duration: "Pin for a set time from now",
+  scheduled: "Schedule when it pins and unpins",
+  until_removed: "Pin until you remove it",
 }
+
+const miniKindOptions = Object.entries(miniKindLabels).map(([value, label]) => ({
+  value,
+  label,
+}))
+
+const pinPresetOptions = Object.entries(pinPresetLabels).map(([value, label]) => ({
+  value,
+  label,
+}))
+
+const pinStrategyOptions = (
+  Object.entries(pinStrategyLabels) as [AnnouncementPinStrategy, string][]
+).map(([value, label]) => ({ value, label }))
 
 export function AnnouncementDialog({
   post,
@@ -58,10 +78,7 @@ export function AnnouncementDialog({
   const [internalOpen, setInternalOpen] = useState(false)
   const open = openProp ?? internalOpen
   const onOpenChange = onOpenChangeProp ?? setInternalOpen
-  const [published, setPublished] = useState(post?.published ?? true)
-  const [pinMode, setPinMode] = useState<"none" | "preset" | "custom">(
-    defaultPinMode(post)
-  )
+  const [pinStrategy, setPinStrategy] = useState<AnnouncementPinStrategy>("duration")
   const [pinPreset, setPinPreset] = useState<PinPreset>("1w")
   const action = isEdit
     ? updateMiniPostAction.bind(null, post!.id)
@@ -75,18 +92,22 @@ export function AnnouncementDialog({
 
   useEffect(() => {
     if (!open) return
-    setPublished(post?.published ?? true)
-    setPinMode(defaultPinMode(post))
+    setPinStrategy(post ? inferAnnouncementPinStrategy(post) : "duration")
     setPinPreset("1w")
   }, [open, post])
 
   const resolvedVariant = triggerVariant ?? (isEdit ? "outline" : "default")
+  const formKey = post?.id ?? "new"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {!hideTrigger ? (
         <DialogTrigger asChild>
-          <Button size={triggerSize} variant={resolvedVariant} className={triggerClassName}>
+          <Button
+            size={triggerSize}
+            variant={resolvedVariant}
+            className={triggerClassName}
+          >
             {isEdit ? (
               <Pencil className="size-4" />
             ) : (
@@ -102,114 +123,108 @@ export function AnnouncementDialog({
             {isEdit ? "Edit announcement" : "Create announcement"}
           </DialogTitle>
           <DialogDescription>
-            Members only see pinned announcements on Home. Unpinned posts stay in
-            admin for your records.
+            Choose how this announcement appears on Home. Members only see it
+            while it is pinned.
           </DialogDescription>
         </DialogHeader>
-        <form action={formAction} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="mp-kind">Type</Label>
-            <NativeSelect
-              id="mp-kind"
-              name="mini_kind"
-              defaultValue={post?.mini_kind ?? "reminder"}
-            >
-              {Object.entries(miniKindLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="mp-title">Title</Label>
-            <Input
-              id="mp-title"
-              name="title"
-              required
-              defaultValue={post?.title ?? ""}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="mp-body">Message</Label>
-            <Textarea
-              id="mp-body"
-              name="body"
-              rows={3}
-              required
-              defaultValue={post?.body ?? ""}
-            />
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="published"
-              checked={published}
-              onChange={(event) => setPublished(event.target.checked)}
-              className="size-4 rounded border border-input"
-            />
-            Published (not a draft)
-          </label>
+        <form
+          key={formKey}
+          action={formAction}
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        >
+          <DialogBody className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="mp-kind">Type</Label>
+              <FormSelect
+                id="mp-kind"
+                name="mini_kind"
+                defaultValue={post?.mini_kind ?? "reminder"}
+                options={miniKindOptions}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="mp-title">Title</Label>
+              <Input
+                id="mp-title"
+                name="title"
+                required
+                defaultValue={post?.title ?? ""}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="mp-body">Message</Label>
+              <Textarea
+                id="mp-body"
+                name="body"
+                rows={4}
+                required
+                defaultValue={post?.body ?? ""}
+              />
+            </div>
 
-          {published ? (
             <fieldset className="space-y-3 rounded-lg border p-3">
-              <legend className="px-1 text-sm font-medium">Pin on home</legend>
-              <input type="hidden" name="pin_mode" value={pinMode} />
+              <legend className="px-1 text-sm font-medium">Home pin</legend>
+              <input type="hidden" name="pin_strategy" value={pinStrategy} />
               <input type="hidden" name="pin_preset" value={pinPreset} />
               <div className="space-y-2">
-                <Label htmlFor="mp-pin-mode">Visibility</Label>
-                <NativeSelect
-                  id="mp-pin-mode"
-                  value={pinMode}
-                  onChange={(event) =>
-                    setPinMode(event.target.value as "none" | "preset" | "custom")
+                <Label htmlFor="mp-pin-strategy">Mode</Label>
+                <SimpleSelect
+                  id="mp-pin-strategy"
+                  value={pinStrategy}
+                  onValueChange={(value) =>
+                    setPinStrategy(value as AnnouncementPinStrategy)
                   }
-                >
-                  <option value="none">Don&apos;t show on home</option>
-                  <option value="preset">Preset duration</option>
-                  <option value="custom">Custom date & time</option>
-                </NativeSelect>
+                  options={pinStrategyOptions}
+                />
               </div>
-              {pinMode === "preset" ? (
+
+              {pinStrategy === "duration" ? (
                 <div className="space-y-2">
                   <Label htmlFor="mp-pin-preset">Duration</Label>
-                  <NativeSelect
+                  <SimpleSelect
                     id="mp-pin-preset"
                     value={pinPreset}
-                    onChange={(event) =>
-                      setPinPreset(event.target.value as PinPreset)
-                    }
-                  >
-                    {Object.entries(pinPresetLabels).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </NativeSelect>
-                </div>
-              ) : null}
-              {pinMode === "custom" ? (
-                <div className="space-y-2">
-                  <Label htmlFor="mp-pin-until">Pin until</Label>
-                  <Input
-                    id="mp-pin-until"
-                    name="pin_until"
-                    type="datetime-local"
-                    defaultValue={
-                      post?.pinned_until && isPinned(post)
-                        ? toDatetimeLocalValue(post.pinned_until)
-                        : ""
-                    }
+                    onValueChange={(value) => setPinPreset(value as PinPreset)}
+                    options={pinPresetOptions}
                   />
                 </div>
               ) : null}
-              {isEdit && post?.pinned_until && isPinned(post) && pinMode === "none" ? (
-                <p className="text-xs text-muted-foreground">
-                  Saving without a pin will hide this from members on Home.
-                </p>
+
+              {pinStrategy === "scheduled" ? (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Pin starts</Label>
+                    <ClubDateTimePicker
+                      id="mp-pin-start"
+                      name="pin_start"
+                      required
+                      defaultIso={post?.pinned_from ?? undefined}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Pin ends (unpin)</Label>
+                    <ClubDateTimePicker
+                      id="mp-pin-end"
+                      name="pin_end"
+                      required
+                      defaultIso={post?.pinned_until ?? undefined}
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              {pinStrategy === "until_removed" ? (
+                <div className="space-y-2">
+                  <Label>Start pinning at (optional)</Label>
+                  <ClubDateTimePicker
+                    id="mp-pin-start-optional"
+                    name="pin_start_optional"
+                    defaultIso={post?.pinned_from ?? undefined}
+                  />
+                </div>
               ) : null}
             </fieldset>
-          ) : null}
+          </DialogBody>
 
           <DialogFooter>
             <Button type="submit" size="lg" disabled={pending}>

@@ -3,45 +3,57 @@ import { redirect } from "next/navigation"
 import {
   getAdminChatDirectory,
   getChatMessages,
-  getChatThreadsForUser,
+  getMemberChatDirectory,
 } from "@/app/actions/chat"
 import { ChatShell } from "@/components/chat/chat-shell"
 import { getProfile } from "@/lib/auth"
 import { isAdmin } from "@/lib/roles"
 
 type ChatPageProps = {
-  searchParams: Promise<{ thread?: string; member?: string }>
+  searchParams: Promise<{ thread?: string; member?: string; admin?: string }>
 }
 
 export default async function ChatPage({ searchParams }: ChatPageProps) {
   const profile = await getProfile()
   if (!profile) redirect("/login")
 
-  const { thread: threadParam, member: memberParam } = await searchParams
-  const admin = isAdmin(profile.role)
+  const { thread: threadParam, member: memberParam, admin: adminParam } =
+    await searchParams
+  const adminUser = isAdmin(profile.role)
 
-  let directory = undefined
-  let initialMemberId: string | null = admin ? null : profile.id
+  const directory = adminUser
+    ? await getAdminChatDirectory()
+    : await getMemberChatDirectory()
+
+  let initialContactId: string | null = null
   let initialThreadId: string | null = null
 
-  if (admin) {
-    directory = await getAdminChatDirectory()
-
-    if (memberParam && directory.some((entry) => entry.memberId === memberParam)) {
-      const entry = directory.find((item) => item.memberId === memberParam)!
-      initialMemberId = entry.memberId
+  if (adminUser) {
+    if (memberParam && directory.some((entry) => entry.contactId === memberParam)) {
+      const entry = directory.find((item) => item.contactId === memberParam)!
+      initialContactId = entry.contactId
       initialThreadId = entry.threadId
     } else if (
       threadParam &&
       directory.some((entry) => entry.threadId === threadParam)
     ) {
       const entry = directory.find((item) => item.threadId === threadParam)!
-      initialMemberId = entry.memberId
+      initialContactId = entry.contactId
       initialThreadId = entry.threadId
     }
   } else {
-    const threads = await getChatThreadsForUser()
-    initialThreadId = threads[0]?.id ?? null
+    if (adminParam && directory.some((entry) => entry.contactId === adminParam)) {
+      const entry = directory.find((item) => item.contactId === adminParam)!
+      initialContactId = entry.contactId
+      initialThreadId = entry.threadId
+    } else if (
+      threadParam &&
+      directory.some((entry) => entry.threadId === threadParam)
+    ) {
+      const entry = directory.find((item) => item.threadId === threadParam)!
+      initialContactId = entry.contactId
+      initialThreadId = entry.threadId
+    }
   }
 
   const initialMessages = initialThreadId
@@ -58,7 +70,7 @@ export default async function ChatPage({ searchParams }: ChatPageProps) {
           role: profile.role,
         }}
         directory={directory}
-        initialMemberId={initialMemberId}
+        initialContactId={initialContactId}
         initialThreadId={initialThreadId}
         initialMessages={initialMessages}
       />

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 
 import { requireProfile } from "@/lib/auth"
+import { memberSubtitle } from "@/lib/chat"
 import { isAdmin } from "@/lib/roles"
 import { createClient } from "@/lib/supabase/server"
 import type { ChatMessage, ChatThreadSummary, ChatDirectoryEntry } from "@/lib/types/chat"
@@ -11,6 +12,7 @@ import type { ActionState } from "@/lib/types/auth"
 type ThreadRow = {
   id: string
   member_id: string
+  admin_id: string
   last_message_body: string | null
   last_message_at: string | null
   last_message_sender_id: string | null
@@ -23,6 +25,11 @@ type ThreadRow = {
     full_name: string | null
     grade_level: number | null
     board_number: number | null
+  }[] | null
+  admin: {
+    full_name: string | null
+  } | {
+    full_name: string | null
   }[] | null
 }
 
@@ -48,10 +55,13 @@ function unwrapOne<T>(value: T | T[] | null): T | null {
 
 function mapThread(row: ThreadRow): ChatThreadSummary {
   const member = unwrapOne(row.member)
+  const admin = unwrapOne(row.admin)
   return {
     id: row.id,
     memberId: row.member_id,
+    adminId: row.admin_id,
     memberName: member?.full_name ?? null,
+    adminName: admin?.full_name ?? null,
     gradeLevel: member?.grade_level ?? null,
     boardNumber: member?.board_number ?? null,
     lastMessageBody: row.last_message_body,
@@ -74,6 +84,15 @@ function mapMessage(row: MessageRow): ChatMessage {
   }
 }
 
+function sortDirectory(entries: ChatDirectoryEntry[]) {
+  return entries.sort((a, b) => {
+    const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+    const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
+    if (aTime !== bTime) return bTime - aTime
+    return (a.contactName ?? "").localeCompare(b.contactName ?? "")
+  })
+}
+
 export async function getChatThreadsForUser(): Promise<ChatThreadSummary[]> {
   const profile = await requireProfile()
   const supabase = await createClient()
@@ -81,12 +100,14 @@ export async function getChatThreadsForUser(): Promise<ChatThreadSummary[]> {
   let query = supabase
     .from("chat_threads")
     .select(
-      "id, member_id, last_message_body, last_message_at, last_message_sender_id, updated_at, member:profiles!chat_threads_member_id_fkey(full_name, grade_level, board_number)"
+      "id, member_id, admin_id, last_message_body, last_message_at, last_message_sender_id, updated_at, member:profiles!chat_threads_member_id_fkey(full_name, grade_level, board_number), admin:profiles!chat_threads_admin_id_fkey(full_name)"
     )
     .order("updated_at", { ascending: false })
 
   if (!isAdmin(profile.role)) {
     query = query.eq("member_id", profile.id)
+  } else {
+    query = query.eq("admin_id", profile.id)
   }
 
   const { data, error } = await query
@@ -110,6 +131,11 @@ type MemberRow = {
   board_number: number | null
 }
 
+type AdminRow = {
+  id: string
+  full_name: string | null
+}
+
 export async function getAdminChatDirectory(): Promise<ChatDirectoryEntry[]> {
   const profile = await requireProfile()
   if (!isAdmin(profile.role)) return []
@@ -126,27 +152,33 @@ export async function getAdminChatDirectory(): Promise<ChatDirectoryEntry[]> {
       supabase
         .from("chat_threads")
         .select(
-          "id, member_id, last_message_body, last_message_at, last_message_sender_id, updated_at"
-        ),
+          "id, member_id, admin_id, last_message_body, last_message_at, last_message_sender_id, updated_at"
+        )
+        .eq("admin_id", profile.id),
     ])
 
   if (membersError?.message.includes("profiles")) return []
   if (threadsError?.message.includes("chat_threads")) {
-    return ((members ?? []) as MemberRow[]).map((member) => ({
-      memberId: member.id,
-      memberName: member.full_name,
-      gradeLevel: member.grade_level,
-      boardNumber: member.board_number,
-      threadId: null,
-      lastMessageBody: null,
-      lastMessageAt: null,
-      lastMessageSenderId: null,
-      updatedAt: null,
-    }))
+    return sortDirectory(
+      ((members ?? []) as MemberRow[]).map((member) => ({
+        contactId: member.id,
+        contactName: member.full_name,
+        contactSubtitle: memberSubtitle({
+          gradeLevel: member.grade_level,
+          boardNumber: member.board_number,
+        }),
+        contactBadge: member.board_number ? `Board ${member.board_number}` : null,
+        threadId: null,
+        lastMessageBody: null,
+        lastMessageAt: null,
+        lastMessageSenderId: null,
+        updatedAt: null,
+      }))
+    )
   }
 
   const threadByMember = new Map(
-    ((threads ?? []) as Omit<ThreadRow, "member">[]).map((thread) => [
+    ((threads ?? []) as Omit<ThreadRow, "member" | "admin">[]).map((thread) => [
       thread.member_id,
       thread,
     ])
@@ -155,10 +187,13 @@ export async function getAdminChatDirectory(): Promise<ChatDirectoryEntry[]> {
   const directory = ((members ?? []) as MemberRow[]).map((member) => {
     const thread = threadByMember.get(member.id)
     return {
-      memberId: member.id,
-      memberName: member.full_name,
-      gradeLevel: member.grade_level,
-      boardNumber: member.board_number,
+      contactId: member.id,
+      contactName: member.full_name,
+      contactSubtitle: memberSubtitle({
+        gradeLevel: member.grade_level,
+        boardNumber: member.board_number,
+      }),
+      contactBadge: member.board_number ? `Board ${member.board_number}` : null,
       threadId: thread?.id ?? null,
       lastMessageBody: thread?.last_message_body ?? null,
       lastMessageAt: thread?.last_message_at ?? null,
@@ -167,12 +202,68 @@ export async function getAdminChatDirectory(): Promise<ChatDirectoryEntry[]> {
     } satisfies ChatDirectoryEntry
   })
 
-  return directory.sort((a, b) => {
-    const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
-    const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
-    if (aTime !== bTime) return bTime - aTime
-    return (a.memberName ?? "").localeCompare(b.memberName ?? "")
+  return sortDirectory(directory)
+}
+
+export async function getMemberChatDirectory(): Promise<ChatDirectoryEntry[]> {
+  const profile = await requireProfile()
+  if (isAdmin(profile.role)) return []
+
+  const supabase = await createClient()
+
+  const [{ data: admins, error: adminsError }, { data: threads, error: threadsError }] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("role", "admin")
+        .order("full_name", { ascending: true }),
+      supabase
+        .from("chat_threads")
+        .select(
+          "id, member_id, admin_id, last_message_body, last_message_at, last_message_sender_id, updated_at"
+        )
+        .eq("member_id", profile.id),
+    ])
+
+  if (adminsError?.message.includes("profiles")) return []
+  if (threadsError?.message.includes("chat_threads")) {
+    return sortDirectory(
+      ((admins ?? []) as AdminRow[]).map((admin) => ({
+        contactId: admin.id,
+        contactName: admin.full_name,
+        contactSubtitle: "Club admin",
+        threadId: null,
+        lastMessageBody: null,
+        lastMessageAt: null,
+        lastMessageSenderId: null,
+        updatedAt: null,
+      }))
+    )
+  }
+
+  const threadByAdmin = new Map(
+    ((threads ?? []) as Omit<ThreadRow, "member" | "admin">[]).map((thread) => [
+      thread.admin_id,
+      thread,
+    ])
+  )
+
+  const directory = ((admins ?? []) as AdminRow[]).map((admin) => {
+    const thread = threadByAdmin.get(admin.id)
+    return {
+      contactId: admin.id,
+      contactName: admin.full_name,
+      contactSubtitle: "Club admin",
+      threadId: thread?.id ?? null,
+      lastMessageBody: thread?.last_message_body ?? null,
+      lastMessageAt: thread?.last_message_at ?? null,
+      lastMessageSenderId: thread?.last_message_sender_id ?? null,
+      updatedAt: thread?.updated_at ?? null,
+    } satisfies ChatDirectoryEntry
   })
+
+  return sortDirectory(directory)
 }
 
 export async function getChatMessages(threadId: string): Promise<ChatMessage[]> {
@@ -181,14 +272,18 @@ export async function getChatMessages(threadId: string): Promise<ChatMessage[]> 
 
   const { data: thread, error: threadError } = await supabase
     .from("chat_threads")
-    .select("id, member_id")
+    .select("id, member_id, admin_id")
     .eq("id", threadId)
     .maybeSingle()
 
   if (threadError?.message.includes("chat_threads")) return []
   if (threadError || !thread) return []
 
-  if (!isAdmin(profile.role) && thread.member_id !== profile.id) {
+  const canAccess =
+    thread.member_id === profile.id ||
+    (isAdmin(profile.role) && thread.admin_id === profile.id)
+
+  if (!canAccess) {
     return []
   }
 
@@ -209,21 +304,23 @@ export async function getChatMessages(threadId: string): Promise<ChatMessage[]> 
   return ((data ?? []) as MessageRow[]).map(mapMessage)
 }
 
-async function ensureMemberThread(
+async function ensureChatThread(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  memberId: string
+  memberId: string,
+  adminId: string
 ) {
   const { data: existing } = await supabase
     .from("chat_threads")
     .select("id")
     .eq("member_id", memberId)
+    .eq("admin_id", adminId)
     .maybeSingle()
 
   if (existing) return existing.id
 
   const { data, error } = await supabase
     .from("chat_threads")
-    .insert({ member_id: memberId })
+    .insert({ member_id: memberId, admin_id: adminId })
     .select("id")
     .single()
 
@@ -237,11 +334,18 @@ async function ensureMemberThread(
 export async function sendChatMessageAction(
   threadId: string | null,
   body: string,
-  memberId?: string | null
+  options?: {
+    memberId?: string | null
+    adminId?: string | null
+    notifyRecipient?: boolean
+  }
 ): Promise<ActionState & { message?: ChatMessage; threadId?: string }> {
   const profile = await requireProfile()
   const supabase = await createClient()
   const trimmed = body.trim()
+  const memberId = options?.memberId ?? null
+  const adminId = options?.adminId ?? null
+  const notifyRecipient = options?.notifyRecipient ?? false
 
   if (!trimmed) {
     return { error: "Message cannot be empty." }
@@ -252,6 +356,8 @@ export async function sendChatMessageAction(
   }
 
   let resolvedThreadId = threadId
+  let threadMemberId: string
+  let threadAdminId: string
 
   try {
     if (!resolvedThreadId) {
@@ -259,14 +365,29 @@ export async function sendChatMessageAction(
         if (!memberId) {
           return { error: "Select a member to message." }
         }
-        resolvedThreadId = await ensureMemberThread(supabase, memberId)
+        resolvedThreadId = await ensureChatThread(
+          supabase,
+          memberId,
+          profile.id
+        )
+        threadMemberId = memberId
+        threadAdminId = profile.id
       } else {
-        resolvedThreadId = await ensureMemberThread(supabase, profile.id)
+        if (!adminId) {
+          return { error: "Select an admin to message." }
+        }
+        resolvedThreadId = await ensureChatThread(
+          supabase,
+          profile.id,
+          adminId
+        )
+        threadMemberId = profile.id
+        threadAdminId = adminId
       }
     } else {
       const { data: thread, error: threadError } = await supabase
         .from("chat_threads")
-        .select("id, member_id")
+        .select("id, member_id, admin_id")
         .eq("id", resolvedThreadId)
         .maybeSingle()
 
@@ -281,9 +402,16 @@ export async function sendChatMessageAction(
         return { error: "Conversation not found." }
       }
 
-      if (!isAdmin(profile.role) && thread.member_id !== profile.id) {
+      const canAccess =
+        thread.member_id === profile.id ||
+        (isAdmin(profile.role) && thread.admin_id === profile.id)
+
+      if (!canAccess) {
         return { error: "You cannot send messages in this conversation." }
       }
+
+      threadMemberId = thread.member_id
+      threadAdminId = thread.admin_id
     }
 
     const { data, error } = await supabase
@@ -310,6 +438,34 @@ export async function sendChatMessageAction(
     }
 
     const message = mapMessage(data as MessageRow)
+
+    const senderName =
+      profile.full_name?.trim() || profile.email || "Someone"
+    const senderIsMember = !isAdmin(profile.role)
+    const finalThreadId = resolvedThreadId as string
+
+    void import("@/lib/notifications/dispatch").then(({ notifyChatMessage }) => {
+      if (senderIsMember) {
+        void notifyChatMessage({
+          recipientUserId: threadAdminId,
+          senderName,
+          body: trimmed,
+          threadId: finalThreadId,
+          recipientKind: "admin",
+        })
+        return
+      }
+
+      if (notifyRecipient) {
+        void notifyChatMessage({
+          recipientUserId: threadMemberId,
+          senderName,
+          body: trimmed,
+          threadId: finalThreadId,
+          recipientKind: "member",
+        })
+      }
+    })
 
     revalidatePath("/chat")
     return {

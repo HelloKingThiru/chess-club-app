@@ -1,12 +1,29 @@
+import { formatClubDateTime } from "@/lib/club-datetime"
 import type { Post } from "@/lib/types/posts"
 
 export function isArchived(post: Pick<Post, "archived_at">) {
   return post.archived_at != null
 }
 
-export function isPinned(post: Pick<Post, "pinned_until">, now = Date.now()) {
+export function isPinned(
+  post: Pick<Post, "pinned_from" | "pinned_until" | "pin_indefinite">,
+  now = Date.now()
+) {
+  const time = now
+
+  if (post.pin_indefinite ?? false) {
+    if (post.pinned_from && new Date(post.pinned_from).getTime() > time) {
+      return false
+    }
+    return true
+  }
+
   if (!post.pinned_until) return false
-  return new Date(post.pinned_until).getTime() > now
+  if (new Date(post.pinned_until).getTime() <= time) return false
+  if (post.pinned_from && new Date(post.pinned_from).getTime() > time) {
+    return false
+  }
+  return true
 }
 
 export function isVisibleToMembers(post: Post, now = Date.now()) {
@@ -20,8 +37,8 @@ export function filterMemberAnnouncements(posts: Post[], now = Date.now()) {
     .filter((post) => post.kind === "mini" && isVisibleToMembers(post, now))
     .sort((a, b) => {
       const pinDiff =
-        new Date(b.pinned_until ?? 0).getTime() -
-        new Date(a.pinned_until ?? 0).getTime()
+        new Date(b.pinned_until ?? b.pinned_from ?? 0).getTime() -
+        new Date(a.pinned_until ?? a.pinned_from ?? 0).getTime()
       if (pinDiff !== 0) return pinDiff
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     })
@@ -34,14 +51,54 @@ export function filterMemberEvents(posts: Post[], now = Date.now()) {
 }
 
 export function formatPinnedUntil(pinnedUntil: string) {
-  const date = new Date(pinnedUntil)
-  if (Number.isNaN(date.getTime())) return "soon"
-  return date.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  })
+  const formatted = formatClubDateTime(pinnedUntil, "short")
+  return formatted || "soon"
+}
+
+export function describeAnnouncementPin(
+  post: Pick<
+    Post,
+    "pin_indefinite" | "pinned_from" | "pinned_until"
+  >,
+  now = Date.now()
+) {
+  const active = isPinned(post, now)
+
+  if (post.pin_indefinite ?? false) {
+    if (post.pinned_from && new Date(post.pinned_from).getTime() > now) {
+      return {
+        active: false,
+        label: `Pins ${formatClubDateTime(post.pinned_from)}`,
+      }
+    }
+    return { active: true, label: "Pinned until removed" }
+  }
+
+  if (post.pinned_from && post.pinned_until) {
+    if (!active && new Date(post.pinned_from).getTime() > now) {
+      return {
+        active: false,
+        label: `Pins ${formatClubDateTime(post.pinned_from)}`,
+      }
+    }
+    if (!active) {
+      return { active: false, label: "Not on home" }
+    }
+    return {
+      active: true,
+      label: `Pinned until ${formatClubDateTime(post.pinned_until)}`,
+    }
+  }
+
+  if (post.pinned_until) {
+    if (!active) return { active: false, label: "Not on home" }
+    return {
+      active: true,
+      label: `Pinned until ${formatClubDateTime(post.pinned_until)}`,
+    }
+  }
+
+  return { active: false, label: "Not on home" }
 }
 
 export type PinPreset = "1d" | "3d" | "1w" | "2w"

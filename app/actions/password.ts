@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 
 import { requireProfile } from "@/lib/auth"
+import { passwordVerifyErrorMessage } from "@/lib/supabase/auth-errors"
 import { createClient } from "@/lib/supabase/server"
 import type { ActionState } from "@/lib/types/auth"
 
@@ -13,7 +14,9 @@ export async function changePasswordAction(
   const profile = await requireProfile()
   const supabase = await createClient()
 
-  const email = String(formData.get("email") ?? "").trim()
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase()
   const oldPassword = String(formData.get("old_password") ?? "")
   const newPassword = String(formData.get("new_password") ?? "")
   const confirmPassword = String(formData.get("confirm_password") ?? "")
@@ -35,7 +38,9 @@ export async function changePasswordAction(
     email,
     password: oldPassword,
   })
-  if (signInError) return { error: "Current password is incorrect." }
+  if (signInError) {
+    return { error: passwordVerifyErrorMessage(signInError) }
+  }
 
   const { error } = await supabase.auth.updateUser({ password: newPassword })
   if (error) return { error: error.message }

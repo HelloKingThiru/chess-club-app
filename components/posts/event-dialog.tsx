@@ -3,11 +3,11 @@
 import { useActionState, useEffect, useState } from "react"
 import { CalendarPlus, Loader2, Pencil, Plus, Save } from "lucide-react"
 
+import { ClubDateTimePicker } from "@/components/club-datetime-picker"
 import {
   createSpecificPostAction,
   updateSpecificPostAction,
 } from "@/app/actions/posts"
-import { toDatetimeLocalValue } from "@/lib/datetime-local"
 import type { ActionState } from "@/lib/types/auth"
 import type { Post } from "@/lib/types/posts"
 import { eventTypeLabels } from "@/lib/types/posts"
@@ -15,6 +15,7 @@ import { useActionToasts } from "@/hooks/use-action-toasts"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -24,7 +25,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { NativeSelect } from "@/components/ui/native-select"
+import { FormSelect } from "@/components/ui/form-select"
 import { Textarea } from "@/components/ui/textarea"
 
 const initial: ActionState = {}
@@ -38,6 +39,7 @@ export function EventDialog({
   triggerSize = "sm",
   triggerLabel,
   triggerClassName,
+  defaultEventIso,
 }: {
   post?: Post
   open?: boolean
@@ -47,6 +49,7 @@ export function EventDialog({
   triggerSize?: "sm" | "default"
   triggerLabel?: string
   triggerClassName?: string
+  defaultEventIso?: string
 }) {
   const isEdit = Boolean(post)
   const [internalOpen, setInternalOpen] = useState(false)
@@ -63,6 +66,7 @@ export function EventDialog({
   }, [state.success, onOpenChange])
 
   const resolvedVariant = triggerVariant ?? (isEdit ? "outline" : "default")
+  const eventDateDefault = post?.event_date ?? defaultEventIso
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -82,14 +86,19 @@ export function EventDialog({
           </Button>
         </DialogTrigger>
       ) : null}
-      <DialogContent className="max-h-[90svh] overflow-y-auto">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit event" : "Create event"}</DialogTitle>
           <DialogDescription>
             Club meets, league games, tournaments, and fundraisers.
           </DialogDescription>
         </DialogHeader>
-        <form action={formAction} className="space-y-4">
+        <form
+          action={formAction}
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
+          key={eventDateDefault ?? "new"}
+        >
+          <DialogBody className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="sp-title">Title</Label>
             <Input
@@ -99,34 +108,27 @@ export function EventDialog({
               defaultValue={post?.title ?? ""}
             />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="sp-type">Type</Label>
-              <NativeSelect
-                id="sp-type"
-                name="event_type"
-                required
-                defaultValue={post?.event_type ?? "club_meet"}
-              >
-                {Object.entries(eventTypeLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </NativeSelect>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sp-date">Date</Label>
-              <Input
-                id="sp-date"
-                name="event_date"
-                type="datetime-local"
-                required
-                defaultValue={
-                  post?.event_date ? toDatetimeLocalValue(post.event_date) : ""
-                }
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="sp-type">Type</Label>
+            <FormSelect
+              id="sp-type"
+              name="event_type"
+              required
+              defaultValue={post?.event_type ?? "club_meet"}
+              options={Object.entries(eventTypeLabels).map(([value, label]) => ({
+                value,
+                label,
+              }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="sp-date">When</Label>
+            <ClubDateTimePicker
+              id="sp-date"
+              name="event_date"
+              required
+              defaultIso={eventDateDefault}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="sp-location">Location</Label>
@@ -146,15 +148,7 @@ export function EventDialog({
               defaultValue={post?.body ?? ""}
             />
           </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="published"
-              defaultChecked={post?.published ?? true}
-              className="size-4 rounded border border-input"
-            />
-            Published (visible on calendar and home)
-          </label>
+          </DialogBody>
           <DialogFooter>
             <Button type="submit" size="lg" disabled={pending}>
               {pending ? (

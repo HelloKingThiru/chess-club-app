@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ArrowRight, Users } from "lucide-react"
+import { Calendar, Users } from "lucide-react"
 
 import { ArchiveAllPreviousButton } from "@/components/admin/archive-all-previous-button"
 import { ComingUpSection } from "@/components/events/coming-up-section"
@@ -11,7 +11,7 @@ import type { Post } from "@/lib/types/posts"
 
 type AdminEventsSectionProps = {
   upcoming: Post[]
-  pastOrDraftEvents: Post[]
+  pastEvents: Post[]
   archivedEvents: Post[]
   attendeeCounts: Record<string, number>
   enrolledIds: Iterable<string>
@@ -19,7 +19,7 @@ type AdminEventsSectionProps = {
 
 export function AdminEventsSection({
   upcoming,
-  pastOrDraftEvents,
+  pastEvents,
   archivedEvents,
   attendeeCounts,
   enrolledIds,
@@ -37,8 +37,8 @@ export function AdminEventsSection({
           <EventDialog />
           <Button variant="outline" size="sm" asChild>
             <Link href="/calendar">
+              <Calendar className="size-4" />
               Open calendar
-              <ArrowRight className="size-4" />
             </Link>
           </Button>
         </div>
@@ -53,13 +53,11 @@ export function AdminEventsSection({
           editable
         />
 
-        {pastOrDraftEvents.length > 0 ? (
+        {pastEvents.length > 0 ? (
           <div className="space-y-3">
-            <h3 className="text-sm font-medium text-muted-foreground">
-              Past & drafts
-            </h3>
+            <h3 className="text-sm font-medium text-muted-foreground">Past events</h3>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {pastOrDraftEvents.map((event) => (
+              {pastEvents.map((event) => (
                 <UpcomingEventCard
                   key={event.id}
                   event={event}

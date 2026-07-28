@@ -42,6 +42,7 @@ import {
   type BoardOrderState,
   type EventBoardPlayer,
 } from "@/lib/board-order"
+import { isDeletedMemberPlayer } from "@/lib/deleted-member"
 import type { Profile } from "@/lib/types/auth"
 import { Button } from "@/components/ui/button"
 import { BoardOrderMobileEditor } from "@/components/board-order-mobile-editor"
@@ -77,11 +78,18 @@ function findContainer(state: BoardOrderState, id: UniqueIdentifier) {
   return null
 }
 
+function profileHrefForPlayer(player: Profile | EventBoardPlayer) {
+  if (isDeletedMemberPlayer(player) || player.id.startsWith("deleted:")) {
+    return undefined
+  }
+  return `/profile/${player.id}`
+}
+
 function StaticPlayerRow({
   player,
   boardNumber,
 }: {
-  player: Profile
+  player: Profile | EventBoardPlayer
   boardNumber: number | null
 }) {
   return (
@@ -89,7 +97,7 @@ function StaticPlayerRow({
       <BoardPlayerRow
         player={player}
         boardNumber={boardNumber}
-        href={`/profile/${player.id}`}
+        href={profileHrefForPlayer(player)}
       />
     </li>
   )
@@ -99,9 +107,10 @@ function SortablePlayer({
   player,
   boardNumber,
 }: {
-  player: Profile
+  player: Profile | EventBoardPlayer
   boardNumber: number | null
 }) {
+  const deleted = isDeletedMemberPlayer(player)
   const {
     attributes,
     listeners,
@@ -109,7 +118,7 @@ function SortablePlayer({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: player.id })
+  } = useSortable({ id: player.id, disabled: deleted })
 
   return (
     <li
@@ -124,9 +133,9 @@ function SortablePlayer({
       <BoardPlayerRow
         player={player}
         boardNumber={boardNumber}
-        draggable
+        draggable={!deleted}
         showEmail
-        dragHandleProps={{ ...attributes, ...listeners }}
+        dragHandleProps={deleted ? undefined : { ...attributes, ...listeners }}
       />
     </li>
   )
@@ -393,7 +402,9 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
   }
 
   async function persist(lineup: Profile[]) {
-    const lineupIds = lineup.map((p) => p.id)
+    const lineupIds = lineup
+      .filter((p) => !isDeletedMemberPlayer(p) && !p.id.startsWith("deleted:"))
+      .map((p) => p.id)
     const save = eventId
       ? () => saveEventBoardOrderAction(eventId, lineupIds)
       : () => saveBoardOrderAction(lineupIds)

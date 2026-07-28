@@ -119,35 +119,19 @@ function InputGroupText({ className, ...props }: React.ComponentProps<"span">) {
 const inputGroupControlClassName =
   "flex-1 rounded-none border-0 bg-transparent shadow-none ring-0 focus-visible:ring-0 disabled:bg-transparent aria-invalid:ring-0 dark:bg-transparent dark:disabled:bg-transparent"
 
-function InputGroupInput({
-  className,
-  ...props
-}: React.ComponentProps<"input">) {
+const InputGroupInput = React.forwardRef<
+  HTMLInputElement,
+  React.ComponentProps<"input">
+>(function InputGroupInput({ className, ...props }, ref) {
   return (
     <Input
+      ref={ref}
       data-slot="input-group-control"
       className={cn(inputGroupControlClassName, className)}
       {...props}
     />
   )
-}
-
-function InputGroupNativeSelect({
-  className,
-  ...props
-}: Omit<React.ComponentProps<"select">, "size">) {
-  return (
-    <select
-      data-slot="input-group-control"
-      className={cn(
-        "h-full min-w-0 appearance-none bg-transparent px-2.5 text-base outline-none md:text-sm",
-        inputGroupControlClassName,
-        className
-      )}
-      {...props}
-    />
-  )
-}
+})
 
 function InputGroupTextarea({
   className,
@@ -171,6 +155,5 @@ export {
   InputGroupButton,
   InputGroupText,
   InputGroupInput,
-  InputGroupNativeSelect,
   InputGroupTextarea,
 }

@@ -32,12 +32,15 @@ export async function SiteHeader() {
             adminMode={adminMode}
           />
         ) : (
-          <Button variant="default" size="sm" asChild>
-            <Link href="/login">
-              <LogIn className="size-4" />
-              Sign in
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <SiteNav />
+            <Button variant="default" size="sm" asChild>
+              <Link href="/login">
+                <LogIn className="size-4" />
+                Sign in
+              </Link>
+            </Button>
+          </div>
         )}
       </div>
     </header>

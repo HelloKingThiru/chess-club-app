@@ -13,7 +13,9 @@ export type Post = {
   location: string | null
   published: boolean
   archived_at: string | null
+  pinned_from?: string | null
   pinned_until: string | null
+  pin_indefinite?: boolean
   author_id: string | null
   created_at: string
   updated_at: string

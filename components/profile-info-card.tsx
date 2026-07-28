@@ -5,17 +5,19 @@ import { useActionState, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   GraduationCap,
+  KeyRound,
   Loader2,
   Mail,
   Pencil,
   Phone,
   Save,
   Shield,
+  Trash2,
   User,
   X,
 } from "lucide-react"
 
-import { updateProfileAction } from "@/app/actions/profile"
+import { deleteProfileAction, updateProfileAction } from "@/app/actions/profile"
 import type { ActionState, Profile } from "@/lib/types/auth"
 import { formatGradeLevel, GRADE_LEVELS, gradeLevelOptionLabel } from "@/lib/grade-level"
 import { roleLabel } from "@/lib/roles"
@@ -32,8 +34,9 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { NativeSelect } from "@/components/ui/native-select"
-import { Textarea } from "@/components/ui/textarea"
+import { FormSelect } from "@/components/ui/form-select"
+import { ConfirmAlertDialog } from "@/components/confirm-alert-dialog"
+import { toast } from "sonner"
 import {
   formatPhoneDisplay,
   PhoneInput,
@@ -55,11 +58,20 @@ function initials(name: string | null, email: string) {
 type ProfileInfoCardProps = {
   profile: Profile
   canEditPhone: boolean
+  variant?: "self" | "managed"
 }
 
-export function ProfileInfoCard({ profile, canEditPhone }: ProfileInfoCardProps) {
+export function ProfileInfoCard({
+  profile,
+  canEditPhone,
+  variant = "self",
+}: ProfileInfoCardProps) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deletePending, setDeletePending] = useState(false)
+
+  const managed = variant === "managed"
 
   const [state, submitProfile, pending] = useActionState(
     async (prev: ActionState, formData: FormData) => {
@@ -74,7 +86,24 @@ export function ProfileInfoCard({ profile, canEditPhone }: ProfileInfoCardProps)
   )
   useActionToasts(state, pending)
 
-  const isAdmin = profile.role === "admin"
+  const isAdminProfile = profile.role === "admin"
+  const editPhone = managed ? true : canEditPhone
+
+  async function handleDelete() {
+    setDeletePending(true)
+    const result = await deleteProfileAction(profile.id)
+    setDeletePending(false)
+
+    if (result.error) {
+      toast.error(result.error)
+      return
+    }
+
+    toast.success(result.success ?? "Account deleted.")
+    setDeleteOpen(false)
+    router.push("/board-order")
+    router.refresh()
+  }
 
   const fields = [
     {
@@ -91,7 +120,7 @@ export function ProfileInfoCard({ profile, canEditPhone }: ProfileInfoCardProps)
       id: "email",
       label: "Email",
       icon: Mail,
-      editable: false,
+      editable: managed,
       value: profile.email ?? "",
       display: profile.email,
       type: "email" as const,
@@ -101,7 +130,7 @@ export function ProfileInfoCard({ profile, canEditPhone }: ProfileInfoCardProps)
       id: "phone_number",
       label: "Phone",
       icon: Phone,
-      editable: canEditPhone,
+      editable: editPhone,
       value: profile.phone_number ?? "",
       display: formatPhoneDisplay(profile.phone_number),
       type: "tel" as const,
@@ -141,7 +170,7 @@ export function ProfileInfoCard({ profile, canEditPhone }: ProfileInfoCardProps)
                 <Badge variant="outline">Board {profile.board_number}</Badge>
               ) : null}
             </div>
-            {!editing && isAdmin && profile.bio ? (
+            {!editing && isAdminProfile && profile.bio ? (
               <p className="mt-3 max-w-prose text-sm text-muted-foreground whitespace-pre-wrap">
                 {profile.bio}
               </p>
@@ -157,25 +186,45 @@ export function ProfileInfoCard({ profile, canEditPhone }: ProfileInfoCardProps)
               onClick={() => setEditing(true)}
             >
               <Pencil className="size-4" />
-              Edit profile
+              {managed ? "Edit member" : "Edit profile"}
             </Button>
           ) : null}
-          <SignOutButton />
+          {managed ? (
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="size-4" />
+              Delete account
+            </Button>
+          ) : (
+            <SignOutButton />
+          )}
         </div>
       </CardHeader>
 
       <CardContent>
         {editing ? (
           <form action={submitProfile} className="space-y-4">
+            {managed ? (
+              <input type="hidden" name="profile_id" value={profile.id} />
+            ) : null}
             <input
               type="hidden"
               name="include_phone"
-              value={canEditPhone ? "true" : "false"}
+              value={editPhone ? "true" : "false"}
             />
             <input
               type="hidden"
               name="include_bio"
-              value={isAdmin ? "true" : "false"}
+              value={isAdminProfile ? "true" : "false"}
+            />
+            <input
+              type="hidden"
+              name="include_admin_fields"
+              value={managed ? "true" : "false"}
             />
             <div className="grid gap-4 sm:grid-cols-2">
               {fields.map(({ id, label, icon: Icon, editable, value, display, type, kind }) => (
@@ -195,25 +244,27 @@ export function ProfileInfoCard({ profile, canEditPhone }: ProfileInfoCardProps)
                           placeholder="5551234567"
                         />
                       ) : kind === "grade" ? (
-                        <NativeSelect
+                        <FormSelect
                           id={id}
                           name={id}
-                          defaultValue={value}
-                        >
-                          <option value="">Not set</option>
-                          {GRADE_LEVELS.map((grade) => (
-                            <option key={grade} value={grade}>
-                              {gradeLevelOptionLabel(grade)}
-                            </option>
-                          ))}
-                        </NativeSelect>
+                          className="w-full"
+                          defaultValue={value || "__none__"}
+                          emptyValue="__none__"
+                          options={[
+                            { value: "__none__", label: "Not set" },
+                            ...GRADE_LEVELS.map((grade) => ({
+                              value: String(grade),
+                              label: gradeLevelOptionLabel(grade),
+                            })),
+                          ]}
+                        />
                       ) : (
                         <Input
                           id={id}
                           name={id}
                           type={type}
                           defaultValue={value}
-                          required={id === "full_name"}
+                          required={id === "full_name" || (managed && id === "email")}
                         />
                       )
                     ) : (
@@ -222,19 +273,36 @@ export function ProfileInfoCard({ profile, canEditPhone }: ProfileInfoCardProps)
                   </div>
                 </div>
               ))}
+              {managed && isAdminProfile ? (
+                <div className="flex items-start gap-3 rounded-lg border p-3 sm:col-span-2">
+                  <User className="mt-2 size-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Label htmlFor="bio">About</Label>
+                    <Input
+                      id="bio"
+                      name="bio"
+                      type="text"
+                      defaultValue={profile.bio ?? ""}
+                      placeholder="Role, availability, or how members can reach this admin..."
+                    />
+                  </div>
+                </div>
+              ) : isAdminProfile && !managed ? (
+                <div className="flex items-start gap-3 rounded-lg border p-3 sm:col-span-2">
+                  <User className="mt-2 size-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Label htmlFor="bio">About</Label>
+                    <Input
+                      id="bio"
+                      name="bio"
+                      type="text"
+                      defaultValue={profile.bio ?? ""}
+                      placeholder="Your role, availability, or how members can reach you..."
+                    />
+                  </div>
+                </div>
+              ) : null}
             </div>
-            {isAdmin ? (
-              <div className="space-y-2 rounded-lg border p-3">
-                <Label htmlFor="bio">About</Label>
-                <Textarea
-                  id="bio"
-                  name="bio"
-                  rows={4}
-                  defaultValue={profile.bio ?? ""}
-                  placeholder="Your role, availability, or how members can reach you..."
-                />
-              </div>
-            ) : null}
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <Button type="submit" size="lg" disabled={pending}>
@@ -255,9 +323,14 @@ export function ProfileInfoCard({ profile, canEditPhone }: ProfileInfoCardProps)
                   Cancel
                 </Button>
               </div>
-              <Button variant="link" asChild className="h-8 shrink-0 px-2 text-sm">
-                <Link href="/change-password">Change Password?</Link>
-              </Button>
+              {!managed ? (
+                <Button variant="link" asChild className="h-8 shrink-0 px-2 text-sm">
+                  <Link href="/change-password">
+                    <KeyRound className="size-4" />
+                    Change password
+                  </Link>
+                </Button>
+              ) : null}
             </div>
           </form>
         ) : (
@@ -277,6 +350,18 @@ export function ProfileInfoCard({ profile, canEditPhone }: ProfileInfoCardProps)
           </div>
         )}
       </CardContent>
+      <ConfirmAlertDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete this account?"
+        description={`This permanently removes ${profile.full_name || profile.email} and their sign-in. Chat history and enrollments tied to this user may be removed as well.`}
+        confirmLabel="Delete account"
+        destructive
+        pending={deletePending}
+        onConfirm={() => {
+          void handleDelete()
+        }}
+      />
     </Card>
   )
 }

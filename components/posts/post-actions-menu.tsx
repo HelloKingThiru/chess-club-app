@@ -1,17 +1,16 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { useRouter } from "next/navigation"
 import {
   Archive,
   ArchiveRestore,
   Loader2,
   MoreVertical,
   Pencil,
-  Pin,
   PinOff,
   Trash2,
 } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 import {
@@ -20,10 +19,10 @@ import {
   unarchivePostAction,
   unpinPostAction,
 } from "@/app/actions/posts"
+import { ConfirmAlertDialog } from "@/components/confirm-alert-dialog"
 import { isArchived, isPinned } from "@/lib/post-visibility"
 import { AnnouncementDialog } from "@/components/posts/announcement-dialog"
 import { EventDialog } from "@/components/posts/event-dialog"
-import { PinPostDialog } from "@/components/posts/pin-post-dialog"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -44,7 +43,7 @@ export function PostActionsMenu({
   redirectTo?: string
 }) {
   const [editOpen, setEditOpen] = useState(false)
-  const [pinOpen, setPinOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const noun = kind === "specific" ? "event" : "announcement"
@@ -86,19 +85,14 @@ export function PostActionsMenu({
   }
 
   function onDelete() {
-    const confirmed = window.confirm(
-      `Delete this ${noun}? This cannot be undone.`
-    )
-    if (!confirmed) return
-
     startTransition(async () => {
       const result = await deletePostAction(post.id)
       if (result.error) {
         toast.error(result.error)
         return
       }
-
       toast.success(result.success ?? "Deleted.")
+      setDeleteOpen(false)
       refreshAfterAction()
     })
   }
@@ -126,42 +120,45 @@ export function PostActionsMenu({
             <Pencil />
             Edit
           </DropdownMenuItem>
-          {kind === "mini" ? (
-            <>
-              <DropdownMenuItem onSelect={() => setPinOpen(true)}>
-                <Pin />
-                {pinned ? "Extend pin" : "Pin on home"}
-              </DropdownMenuItem>
-              {pinned ? (
-                <DropdownMenuItem onSelect={onUnpin}>
-                  <PinOff />
-                  Unpin
-                </DropdownMenuItem>
-              ) : null}
-            </>
+          {kind === "mini" && pinned ? (
+            <DropdownMenuItem onSelect={onUnpin}>
+              <PinOff />
+              Unpin from home
+            </DropdownMenuItem>
           ) : null}
           <DropdownMenuItem onSelect={onArchiveToggle}>
             {archived ? <ArchiveRestore /> : <Archive />}
             {archived ? "Unarchive" : "Archive"}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+          <DropdownMenuItem
+            variant="destructive"
+            onSelect={() => setDeleteOpen(true)}
+          >
             <Trash2 />
             Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
+      <ConfirmAlertDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={`Delete ${noun}?`}
+        description="This cannot be undone."
+        confirmLabel="Delete"
+        destructive
+        pending={pending}
+        onConfirm={onDelete}
+      />
+
       {kind === "mini" ? (
-        <>
-          <AnnouncementDialog
-            post={post}
-            open={editOpen}
-            onOpenChange={setEditOpen}
-            hideTrigger
-          />
-          <PinPostDialog post={post} open={pinOpen} onOpenChange={setPinOpen} />
-        </>
+        <AnnouncementDialog
+          post={post}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          hideTrigger
+        />
       ) : (
         <EventDialog
           post={post}

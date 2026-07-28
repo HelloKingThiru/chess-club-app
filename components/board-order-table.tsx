@@ -10,7 +10,6 @@ import {
   BoardPlayerRow,
   BoardSectionHeader,
   OpenBoardSlot,
-  playerDisplayName,
 } from "@/components/board-order-ui"
 
 export function BoardOrderTable({

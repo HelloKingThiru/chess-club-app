@@ -1,9 +1,9 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import {
-  ArrowRight,
   CalendarPlus,
   ClipboardList,
+  Home,
   Megaphone,
   Shield,
   UserPlus,
@@ -63,7 +63,10 @@ export default async function AdminPage() {
           </CardContent>
         </Card>
         <Button variant="outline" asChild>
-          <Link href="/">Back to home</Link>
+          <Link href="/">
+            <Home className="size-4" />
+            Back to home
+          </Link>
         </Button>
       </PageShell>
     )
@@ -97,16 +100,14 @@ export default async function AdminPage() {
   const events = allPosts.filter((post) => post.kind === "specific")
   const memberEvents = filterMemberEvents(events)
   const upcoming = getUpcomingEvents(memberEvents)
-  const pastOrDraftEvents = events.filter(
-    (event) =>
-      !isArchived(event) &&
-      (!event.published || isEventPast(event.event_date))
+  const pastEvents = events.filter(
+    (event) => !isArchived(event) && isEventPast(event.event_date)
   )
   const archivedEvents = events.filter((event) => isArchived(event))
 
   const allManagedEventIds = [
     ...upcoming,
-    ...pastOrDraftEvents,
+    ...pastEvents,
     ...archivedEvents,
   ].map((event) => event.id)
   const { counts, enrolledIds } = await getEventAttendanceMeta(
@@ -129,7 +130,9 @@ export default async function AdminPage() {
           <CardHeader>
             <CardTitle>Could not load all admin data</CardTitle>
             <CardDescription>
-              {dataError.includes("archived_at") || dataError.includes("pinned_until")
+              {dataError.includes("pinned_from") || dataError.includes("pin_indefinite")
+                ? "Run supabase/migration-v12.sql in the Supabase SQL editor, then reload this page."
+                : dataError.includes("archived_at") || dataError.includes("pinned_until")
                 ? "Run supabase/migration-v9.sql in the Supabase SQL editor, then reload this page."
                 : dataError.includes("grade_level") || dataError.includes("bio")
                   ? "Run supabase/migration-v4.sql and migration-v5.sql in Supabase, then reload."
@@ -163,7 +166,7 @@ export default async function AdminPage() {
           <AdminActionCard
             icon={Megaphone}
             title="Post announcement"
-            description="Pin announcements to show them on Home. Unpinned posts stay here for your records."
+            description="Pin announcements to Home with a duration, schedule, or until you remove them."
             pageHref="/"
             pageLabel="Open Home"
             action={<AnnouncementDialog triggerClassName="w-full" />}
@@ -194,8 +197,8 @@ export default async function AdminPage() {
         action={
           <Button variant="outline" size="sm" asChild>
             <Link href="/board-order">
+              <ClipboardList className="size-4" />
               Open board order page
-              <ArrowRight className="size-4" />
             </Link>
           </Button>
         }
@@ -205,7 +208,7 @@ export default async function AdminPage() {
 
       <AdminEventsSection
         upcoming={upcoming}
-        pastOrDraftEvents={pastOrDraftEvents}
+        pastEvents={pastEvents}
         archivedEvents={archivedEvents}
         attendeeCounts={Object.fromEntries(counts)}
         enrolledIds={[...enrolledIds]}

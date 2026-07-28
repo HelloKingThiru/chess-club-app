@@ -3,11 +3,8 @@
 import { useMemo, useState } from "react"
 import { MessageSquare, Search } from "lucide-react"
 
-import {
-  chatInitials,
-  formatThreadPreviewTime,
-  memberSubtitle,
-} from "@/lib/chat"
+import { chatInitials } from "@/lib/chat"
+import { ClientThreadPreviewTime } from "@/components/client-thread-preview-time"
 import type { ChatDirectoryEntry } from "@/lib/types/chat"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
@@ -15,17 +12,23 @@ import { cn } from "@/lib/utils"
 
 type ChatDirectoryListProps = {
   entries: ChatDirectoryEntry[]
-  selectedMemberId: string | null
+  selectedContactId: string | null
   selectedThreadId: string | null
   currentUserId: string
+  searchPlaceholder: string
+  emptyTitle: string
+  emptyDescription: string
   onSelect: (entry: ChatDirectoryEntry) => void
 }
 
 export function ChatDirectoryList({
   entries,
-  selectedMemberId,
+  selectedContactId,
   selectedThreadId,
   currentUserId,
+  searchPlaceholder,
+  emptyTitle,
+  emptyDescription,
   onSelect,
 }: ChatDirectoryListProps) {
   const [query, setQuery] = useState("")
@@ -35,11 +38,8 @@ export function ChatDirectoryList({
     if (!trimmed) return entries
 
     return entries.filter((entry) => {
-      const name = entry.memberName?.toLowerCase() ?? ""
-      const subtitle = memberSubtitle({
-        gradeLevel: entry.gradeLevel,
-        boardNumber: entry.boardNumber,
-      }).toLowerCase()
+      const name = entry.contactName?.toLowerCase() ?? ""
+      const subtitle = entry.contactSubtitle.toLowerCase()
       return name.includes(trimmed) || subtitle.includes(trimmed)
     })
   }, [entries, query])
@@ -51,10 +51,8 @@ export function ChatDirectoryList({
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center">
         <MessageSquare className="size-8 text-muted-foreground/70" />
-        <p className="text-sm font-medium">No members yet</p>
-        <p className="text-xs text-muted-foreground">
-          Club members will appear here so you can message them.
-        </p>
+        <p className="text-sm font-medium">{emptyTitle}</p>
+        <p className="text-xs text-muted-foreground">{emptyDescription}</p>
       </div>
     )
   }
@@ -67,9 +65,9 @@ export function ChatDirectoryList({
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search members…"
+            placeholder={searchPlaceholder}
             className="h-10 pl-9"
-            aria-label="Search members"
+            aria-label={searchPlaceholder}
           />
         </div>
       </div>
@@ -77,7 +75,7 @@ export function ChatDirectoryList({
       <div className="min-h-0 flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-            No members match your search.
+            No matches for your search.
           </p>
         ) : (
           <>
@@ -85,10 +83,10 @@ export function ChatDirectoryList({
               <DirectorySection title="Recent">
                 {withMessages.map((entry) => (
                   <DirectoryRow
-                    key={entry.memberId}
+                    key={entry.contactId}
                     entry={entry}
                     selected={
-                      selectedMemberId === entry.memberId ||
+                      selectedContactId === entry.contactId ||
                       (entry.threadId !== null && selectedThreadId === entry.threadId)
                     }
                     currentUserId={currentUserId}
@@ -100,13 +98,13 @@ export function ChatDirectoryList({
 
             {notStarted.length > 0 ? (
               <DirectorySection
-                title={withMessages.length > 0 ? "All members" : "Members"}
+                title={withMessages.length > 0 ? "Everyone" : "Contacts"}
               >
                 {notStarted.map((entry) => (
                   <DirectoryRow
-                    key={entry.memberId}
+                    key={entry.contactId}
                     entry={entry}
-                    selected={selectedMemberId === entry.memberId}
+                    selected={selectedContactId === entry.contactId}
                     currentUserId={currentUserId}
                     onSelect={onSelect}
                     isNew
@@ -168,7 +166,7 @@ function DirectoryRow({
           <AvatarFallback
             className={cn(selected ? "bg-primary/15 text-primary" : "bg-muted")}
           >
-            {chatInitials(entry.memberName, entry.memberId)}
+            {chatInitials(entry.contactName, entry.contactId)}
           </AvatarFallback>
         </Avatar>
 
@@ -180,19 +178,17 @@ function DirectoryRow({
                 needsReply ? "font-semibold" : "font-medium"
               )}
             >
-              {entry.memberName || "Club member"}
+              {entry.contactName || "Club contact"}
             </p>
             {entry.lastMessageAt ? (
-              <span className="shrink-0 text-[11px] text-muted-foreground">
-                {formatThreadPreviewTime(entry.lastMessageAt)}
-              </span>
+              <ClientThreadPreviewTime
+                iso={entry.lastMessageAt}
+                className="shrink-0 text-[11px] text-muted-foreground"
+              />
             ) : null}
           </div>
           <p className="truncate text-xs text-muted-foreground">
-            {memberSubtitle({
-              gradeLevel: entry.gradeLevel,
-              boardNumber: entry.boardNumber,
-            })}
+            {entry.contactSubtitle}
           </p>
           <p
             className={cn(
@@ -213,7 +209,9 @@ function DirectoryRow({
             className="mt-2 size-2 shrink-0 rounded-full bg-primary"
             aria-label="Needs reply"
           />
-        ) : null}
+        ) : (
+          <MessageSquare className="mt-2 size-4 shrink-0 text-muted-foreground/70" />
+        )}
       </button>
     </li>
   )

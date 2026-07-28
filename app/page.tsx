@@ -36,10 +36,12 @@ export default async function HomePage() {
     : filterMemberAnnouncements(allAnnouncements)
   const events = filterMemberEvents(all.filter((p) => p.kind === "specific"))
   const upcoming = getUpcomingEvents(events)
-  const { counts, enrolledIds } = await getEventAttendanceMeta(
-    upcoming.map((event) => event.id),
-    profile?.id
-  )
+  const { counts, enrolledIds } = profile
+    ? await getEventAttendanceMeta(
+        upcoming.map((event) => event.id),
+        profile.id
+      )
+    : { counts: new Map<string, number>(), enrolledIds: new Set<string>() }
 
   const firstName = profile?.full_name?.split(" ")[0]
 
@@ -47,8 +49,12 @@ export default async function HomePage() {
     <PageShell className="space-y-10">
       <PageHeader
         eyebrow={siteConfig.name}
-        title={firstName ? `Welcome back, ${firstName}` : "Welcome"}
-        description="Read club announcements, browse upcoming events, and enroll in tournaments."
+        title={firstName ? `Welcome back, ${firstName}` : siteConfig.name}
+        description={
+          profile
+            ? "Read club announcements, browse upcoming events, and enroll in tournaments."
+            : "Browse announcements, events, and the board order. Sign in to enroll or message the team."
+        }
         icon={Calendar}
         action={showAdmin ? <AnnouncementDialog /> : null}
       />
@@ -81,6 +87,7 @@ export default async function HomePage() {
         enrolledIds={[...enrolledIds]}
         showCalendarLink
         editable={showAdmin}
+        showMemberFeatures={Boolean(profile)}
       />
     </PageShell>
   )

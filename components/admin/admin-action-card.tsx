@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ArrowRight, type LucideIcon } from "lucide-react"
+import { type LucideIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -51,8 +51,8 @@ export function AdminActionCard({
               asChild
             >
               <Link href={pageHref}>
+                <Icon className="size-4" />
                 {pageLabel}
-                <ArrowRight className="size-4" />
               </Link>
             </Button>
           ) : null}

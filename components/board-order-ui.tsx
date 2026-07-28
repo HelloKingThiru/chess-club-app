@@ -6,6 +6,7 @@ import { MAX_BOARD_SLOTS } from "@/lib/board-order"
 import { formatGradeLevel } from "@/lib/grade-level"
 import { roleLabel } from "@/lib/roles"
 import type { Profile } from "@/lib/types/auth"
+import { isDeletedMemberPlayer } from "@/lib/deleted-member"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -229,11 +230,16 @@ export function BoardPlayerRow({
   dragHandleProps,
   isDragOverlay = false,
 }: BoardPlayerRowProps) {
+  const deleted = isDeletedMemberPlayer(player)
   const name = playerDisplayName(player)
   const meta = boardRankMeta(boardNumber)
   const grade =
     player.grade_level != null ? formatGradeLevel(player.grade_level) : null
   const role = roleLabel(player.role)
+  const profileHref =
+    href && !deleted && !player.id.startsWith("deleted:")
+      ? href
+      : undefined
   const { className: dragHandleClassName, ...dragHandleRest } =
     dragHandleProps ?? {}
 
@@ -264,20 +270,29 @@ export function BoardPlayerRow({
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          {draggable ? (
+          {draggable && profileHref ? (
             <Link
-              href={`/profile/${player.id}`}
+              href={profileHref}
               className="truncate text-base font-semibold tracking-tight hover:underline"
               onClick={(event) => event.stopPropagation()}
             >
               {name}
             </Link>
           ) : (
-            <p className="truncate text-base font-semibold tracking-tight">
+            <p
+              className={cn(
+                "truncate text-base font-semibold tracking-tight",
+                deleted && "text-muted-foreground"
+              )}
+            >
               {name}
             </p>
           )}
-          {player.role === "admin" ? (
+          {deleted ? (
+            <Badge variant="outline" className="text-muted-foreground">
+              Removed
+            </Badge>
+          ) : player.role === "admin" ? (
             <Badge variant="secondary">{role}</Badge>
           ) : null}
         </div>
@@ -297,7 +312,7 @@ export function BoardPlayerRow({
               {grade && grade !== "Not set" ? <span aria-hidden>·</span> : null}
               <span className="truncate">{player.email}</span>
             </>
-          ) : href ? (
+          ) : profileHref ? (
             <>
               {grade && grade !== "Not set" ? <span aria-hidden>·</span> : null}
               <span>View profile</span>
@@ -306,7 +321,7 @@ export function BoardPlayerRow({
         </div>
       </div>
 
-      {href && !draggable ? (
+      {profileHref && !draggable ? (
         <ChevronRight
           className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground"
           aria-hidden
@@ -320,12 +335,13 @@ export function BoardPlayerRow({
     meta.rowClass,
     meta.accentClass,
     isDragOverlay && "shadow-lg ring-2 ring-primary/20",
-    href && !draggable && "hover:bg-accent/40"
+    href && !draggable && "hover:bg-accent/40",
+    deleted && "opacity-80"
   )
 
-  if (href && !draggable) {
+  if (profileHref && !draggable) {
     return (
-      <Link href={href} className={rowClass}>
+      <Link href={profileHref} className={rowClass}>
         {body}
       </Link>
     )

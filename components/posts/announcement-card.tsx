@@ -1,9 +1,8 @@
 import type { Post } from "@/lib/types/posts"
 import { miniKindLabels } from "@/lib/types/posts"
 import {
-  formatPinnedUntil,
+  describeAnnouncementPin,
   isArchived,
-  isPinned,
 } from "@/lib/post-visibility"
 import { PostActionsMenu } from "@/components/posts/post-actions-menu"
 import { Badge } from "@/components/ui/badge"
@@ -21,8 +20,8 @@ export function AnnouncementCard({
   post: Post
   editable?: boolean
 }) {
-  const pinned = isPinned(post)
   const archived = isArchived(post)
+  const pin = describeAnnouncementPin(post)
 
   return (
     <Card className={archived ? "opacity-75" : undefined}>
@@ -33,18 +32,11 @@ export function AnnouncementCard({
               <Badge variant="secondary">
                 {post.mini_kind ? miniKindLabels[post.mini_kind] : "Announcement"}
               </Badge>
-              {!post.published ? (
-                <Badge variant="outline">Draft</Badge>
-              ) : null}
               {archived ? <Badge variant="outline">Archived</Badge> : null}
-              {post.published && !archived ? (
-                pinned ? (
-                  <Badge variant="default">
-                    Pinned until {formatPinnedUntil(post.pinned_until!)}
-                  </Badge>
-                ) : (
-                  <Badge variant="outline">Unpinned</Badge>
-                )
+              {!archived ? (
+                <Badge variant={pin.active ? "default" : "outline"}>
+                  {pin.label}
+                </Badge>
               ) : null}
               <CardTitle className="text-base">{post.title}</CardTitle>
             </div>

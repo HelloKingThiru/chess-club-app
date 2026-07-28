@@ -1,5 +1,10 @@
 import { appUrl } from "@/lib/app-url"
-import { announcementEmail } from "@/lib/notifications/email-templates"
+import {
+  announcementEmail,
+  accountDeletedEmail,
+  chatMessageEmail,
+  newEventEmail,
+} from "@/lib/notifications/email-templates"
 import { sendEmail } from "@/lib/notifications/email"
 import { getMemberRecipients } from "@/lib/notifications/recipients"
 import { sendPush } from "@/lib/notifications/push"
@@ -81,20 +86,41 @@ export async function notifyNewAnnouncement({
 export async function notifyNewEvent({
   id,
   title,
+  body,
+  eventDate,
+  location,
 }: {
   id: string
   title: string
+  body: string
+  eventDate: string
+  location: string | null
 }) {
   const members = await getMemberRecipients()
+  const { subject, html } = newEventEmail({
+    title,
+    body,
+    eventDate,
+    location,
+    eventId: id,
+  })
 
   await Promise.allSettled(
-    members.map((member) =>
-      notifyUserPush(member.id, {
-        title: "New event",
-        body: title,
-        url: appUrl(`/event/${id}`),
-      })
-    )
+    members.map(async (member) => {
+      const tasks: Promise<unknown>[] = [
+        notifyUserPush(member.id, {
+          title: "New event",
+          body: title,
+          url: appUrl(`/event/${id}`),
+        }),
+      ]
+
+      if (member.preferences.email_events) {
+        tasks.push(sendEmail({ to: member.email, subject, html }))
+      }
+
+      await Promise.allSettled(tasks)
+    })
   )
 }
 
@@ -112,4 +138,55 @@ export async function notifyEnrollment({
     body: title,
     url: appUrl(`/event/${eventId}`),
   })
+}
+
+export async function notifyChatMessage({
+  recipientUserId,
+  senderName,
+  body,
+  threadId,
+  recipientKind,
+}: {
+  recipientUserId: string
+  senderName: string
+  body: string
+  threadId: string
+  recipientKind: "admin" | "member"
+}) {
+  const admin = getAdminClient()
+  if (!admin) return
+
+  const { data, error } = await admin
+    .from("profiles")
+    .select("email")
+    .eq("id", recipientUserId)
+    .maybeSingle()
+
+  if (error) {
+    console.error("Failed to load chat email recipient:", error.message)
+    return
+  }
+
+  const email = data?.email?.trim()
+  if (!email?.includes("@")) return
+
+  const { subject, html } = chatMessageEmail({
+    senderName,
+    body,
+    threadId,
+    recipientKind,
+  })
+
+  await sendEmail({ to: email, subject, html })
+}
+
+export async function notifyAccountDeleted({
+  to,
+  memberName,
+}: {
+  to: string
+  memberName: string
+}) {
+  const { subject, html } = accountDeletedEmail({ memberName })
+  await sendEmail({ to, subject, html })
 }

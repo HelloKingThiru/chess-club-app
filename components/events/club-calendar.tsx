@@ -2,8 +2,9 @@
 
 import Link from "next/link"
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
-import { ChevronLeft, ChevronRight, MapPin } from "lucide-react"
+import { CalendarPlus, ChevronLeft, ChevronRight, MapPin } from "lucide-react"
 
+import { EventDialog } from "@/components/posts/event-dialog"
 import {
   addMonths,
   buildMonthGrid,
@@ -13,6 +14,7 @@ import {
   monthLabel,
   parseEventDate,
 } from "@/lib/calendar-utils"
+import { clubDateKey, clubDefaultIsoForDay, clubTodayYmd, formatClubDateTime, formatClubTime } from "@/lib/club-datetime"
 import { eventTypeColors } from "@/lib/event-type-styles"
 import { eventTypeLabels } from "@/lib/types/posts"
 import type { Post } from "@/lib/types/posts"
@@ -25,13 +27,37 @@ const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
 type ClubCalendarProps = {
   events: Post[]
+  canCreateEvent?: boolean
+  /** Club-calendar "today" from the server (yyyy-MM-dd) for stable SSR/hydration. */
+  initialDayYmd?: string
 }
 
-export function ClubCalendar({ events }: ClubCalendarProps) {
-  const today = useMemo(() => new Date(), [])
-  const [viewMonth, setViewMonth] = useState(() => startOfMonthSafe(today))
-  const [selected, setSelected] = useState(() => startOfDaySafe(today))
+function parseYmd(ymd: string) {
+  const [year, month, day] = ymd.split("-").map(Number)
+  return new Date(year, month - 1, day)
+}
+
+export function ClubCalendar({
+  events,
+  canCreateEvent = false,
+  initialDayYmd,
+}: ClubCalendarProps) {
+  const [hydrated, setHydrated] = useState(false)
+
+  useEffect(() => {
+    setHydrated(true)
+  }, [])
+
+  const anchorDay = useMemo(() => {
+    const ymd = initialDayYmd ?? clubTodayYmd()
+    return parseYmd(ymd)
+  }, [initialDayYmd])
+
+  const today = anchorDay
+  const [viewMonth, setViewMonth] = useState(() => startOfMonthSafe(anchorDay))
+  const [selected, setSelected] = useState(() => startOfDaySafe(anchorDay))
   const [panelFlash, setPanelFlash] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
   const selectedDayRef = useRef<HTMLDivElement>(null)
 
   function selectDay(day: Date) {
@@ -52,8 +78,8 @@ export function ClubCalendar({ events }: ClubCalendarProps) {
   const eventsByDay = useMemo(() => {
     const map = new Map<string, Post[]>()
     for (const event of events) {
-      const day = startOfDaySafe(parseEventDate(event.event_date))
-      const key = dateKey(day)
+      const key = clubDateKey(event.event_date)
+      if (!key) continue
       const list = map.get(key) ?? []
       list.push(event)
       map.set(key, list)
@@ -69,11 +95,21 @@ export function ClubCalendar({ events }: ClubCalendarProps) {
   }, [events])
 
   const monthCells = buildMonthGrid(viewMonth)
-  const selectedEvents = eventsByDay.get(dateKey(selected)) ?? []
+  const selectedEvents = eventsByDay.get(calendarDayKey(selected)) ?? []
   const selectedPrimaryType = selectedEvents[0]?.event_type
   const selectedFlashColor = selectedPrimaryType
     ? eventTypeFlashColor[selectedPrimaryType]
     : undefined
+  const defaultEventIso = clubDefaultIsoForDay(selected, 15, 30)
+
+  if (!hydrated) {
+    return (
+      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        <Card className="order-2 min-h-[420px] animate-pulse bg-muted/20 lg:order-1" />
+        <Card className="order-1 min-h-[320px] animate-pulse bg-muted/20 lg:order-2" />
+      </div>
+    )
+  }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -129,7 +165,7 @@ export function ClubCalendar({ events }: ClubCalendarProps) {
               const inMonth = day.getMonth() === viewMonth.getMonth()
               const isToday = isSameDay(day, today)
               const isSelected = isSameDay(day, selected)
-              const dayEvents = eventsByDay.get(dateKey(day)) ?? []
+              const dayEvents = eventsByDay.get(calendarDayKey(day)) ?? []
               const hasEvents = dayEvents.length > 0
               const primaryType = dayEvents[0]?.event_type
               const eventColors = primaryType ? eventTypeColors[primaryType] : null
@@ -267,28 +303,47 @@ export function ClubCalendar({ events }: ClubCalendarProps) {
               : undefined
           }
         >
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">
-            {dayLabel(selected)}
-            {selectedEvents.length > 0
-              ? ` · ${selectedEvents.length} event${selectedEvents.length === 1 ? "" : "s"}`
-              : ""}
-          </CardTitle>
-        </CardHeader>
-        <CardContent
-          key={dateKey(selected)}
-          className="space-y-2 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:duration-300"
-        >
-          {selectedEvents.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Nothing scheduled. Pick another day or check Coming up below.
-            </p>
-          ) : (
-            selectedEvents.map((event) => (
-              <EventChip key={event.id} event={event} />
-            ))
-          )}
-        </CardContent>
+          <CardHeader className="space-y-3 pb-2">
+            <CardTitle className="text-base">
+              {dayLabel(selected)}
+              {selectedEvents.length > 0
+                ? ` · ${selectedEvents.length} event${selectedEvents.length === 1 ? "" : "s"}`
+                : ""}
+            </CardTitle>
+            {canCreateEvent ? (
+              <>
+                <EventDialog
+                  hideTrigger
+                  open={createOpen}
+                  onOpenChange={setCreateOpen}
+                  defaultEventIso={defaultEventIso}
+                />
+                <Button
+                  type="button"
+                  className="w-full"
+                  size="sm"
+                  onClick={() => setCreateOpen(true)}
+                >
+                  <CalendarPlus className="size-4" />
+                  Schedule on this day
+                </Button>
+              </>
+            ) : null}
+          </CardHeader>
+          <CardContent
+            key={dateKey(selected)}
+            className="space-y-2 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:duration-300"
+          >
+            {selectedEvents.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nothing scheduled. Pick another day or check Coming up below.
+              </p>
+            ) : (
+              selectedEvents.map((event) => (
+                <EventChip key={event.id} event={event} />
+              ))
+            )}
+          </CardContent>
         </Card>
       </div>
     </div>
@@ -297,10 +352,7 @@ export function ClubCalendar({ events }: ClubCalendarProps) {
 
 function EventChip({ event, compact }: { event: Post; compact?: boolean }) {
   const colors = event.event_type ? eventTypeColors[event.event_type] : null
-  const time = parseEventDate(event.event_date).toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  })
+  const time = formatClubTime(event.event_date)
 
   return (
     <Link
@@ -320,13 +372,7 @@ function EventChip({ event, compact }: { event: Post; compact?: boolean }) {
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
         {compact
-          ? parseEventDate(event.event_date).toLocaleString(undefined, {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
-              hour: "numeric",
-              minute: "2-digit",
-            })
+          ? formatClubDateTime(event.event_date, "short")
           : time}
         {event.location ? (
           <span className="mt-1 flex items-center gap-1">
@@ -338,6 +384,12 @@ function EventChip({ event, compact }: { event: Post; compact?: boolean }) {
       </p>
     </Link>
   )
+}
+
+function calendarDayKey(day: Date) {
+  const month = String(day.getMonth() + 1).padStart(2, "0")
+  const date = String(day.getDate()).padStart(2, "0")
+  return `${day.getFullYear()}-${month}-${date}`
 }
 
 function startOfMonthSafe(date: Date) {

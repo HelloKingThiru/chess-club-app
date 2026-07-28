@@ -1,6 +1,9 @@
 "use client"
 
 import { useEffect } from "react"
+import { RotateCw } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
 
 export default function AdminError({
   error,
@@ -23,13 +26,10 @@ export default function AdminError({
         {error.message}
         {error.digest ? `\n\nDigest: ${error.digest}` : ""}
       </pre>
-      <button
-        type="button"
-        onClick={reset}
-        className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-      >
+      <Button type="button" onClick={reset}>
+        <RotateCw className="size-4" />
         Try again
-      </button>
+      </Button>
     </div>
   )
 }

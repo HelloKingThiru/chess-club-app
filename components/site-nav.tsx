@@ -15,24 +15,32 @@ import { NavLink } from "@/components/nav-link"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 type SiteNavProps = {
-  profileId: string
-  isAdmin: boolean
-  adminMode: boolean
+  profileId?: string
+  isAdmin?: boolean
+  adminMode?: boolean
 }
 
 export function SiteNav({
   profileId,
-  isAdmin,
-  adminMode,
+  isAdmin = false,
+  adminMode = false,
 }: SiteNavProps) {
+  const memberItems = profileId
+    ? [
+        { href: "/chat", icon: MessageSquare, label: "Messages" },
+        { href: `/profile/${profileId}`, icon: User, label: "Profile" },
+      ]
+    : []
+
   return (
     <div className="flex items-center gap-2 sm:gap-3">
       <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Main">
         <NavLink href="/" icon={Home} label="Home" exact />
         <NavLink href="/calendar" icon={Calendar} label="Calendar" />
-        <NavLink href="/chat" icon={MessageSquare} label="Messages" />
+        {memberItems.map(({ href, icon, label }) => (
+          <NavLink key={href} href={href} icon={icon} label={label} />
+        ))}
         <NavLink href="/board-order" icon={ClipboardList} label="Board order" />
-        <NavLink href={`/profile/${profileId}`} icon={User} label="Profile" />
       </nav>
 
       {isAdmin ? (
@@ -45,12 +53,14 @@ export function SiteNav({
       ) : null}
 
       <div className="flex items-center gap-2">
-        <ThemeToggle />
+        <div className="hidden lg:block">
+          <ThemeToggle />
+        </div>
         <MobileNavSheet
-        profileId={profileId}
-        isAdmin={isAdmin}
-        adminMode={adminMode}
-      />
+          profileId={profileId}
+          isAdmin={isAdmin}
+          adminMode={adminMode}
+        />
       </div>
     </div>
   )

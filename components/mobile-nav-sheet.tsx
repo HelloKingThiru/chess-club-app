@@ -17,7 +17,7 @@ import Link from "next/link"
 import { siteConfig } from "@/lib/site-config"
 import { AdminModeToggle } from "@/components/admin-mode-toggle"
 import { MobileNavLink } from "@/components/nav-link"
-import { ThemeToggle } from "@/components/theme-toggle"
+import { ThemePicker } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -36,15 +36,15 @@ type NavItem = {
 }
 
 type MobileNavSheetProps = {
-  profileId: string
-  isAdmin: boolean
-  adminMode: boolean
+  profileId?: string
+  isAdmin?: boolean
+  adminMode?: boolean
 }
 
 export function MobileNavSheet({
   profileId,
-  isAdmin,
-  adminMode,
+  isAdmin = false,
+  adminMode = false,
 }: MobileNavSheetProps) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
@@ -56,9 +56,13 @@ export function MobileNavSheet({
   const items: NavItem[] = [
     { href: "/", icon: Home, label: "Home", exact: true },
     { href: "/calendar", icon: Calendar, label: "Calendar" },
-    { href: "/chat", icon: MessageSquare, label: "Messages" },
+    ...(profileId
+      ? [
+          { href: "/chat", icon: MessageSquare, label: "Messages" },
+          { href: `/profile/${profileId}`, icon: User, label: "Profile" },
+        ]
+      : []),
     { href: "/board-order", icon: ClipboardList, label: "Board order" },
-    { href: `/profile/${profileId}`, icon: User, label: "Profile" },
   ]
 
   return (
@@ -127,7 +131,7 @@ export function MobileNavSheet({
           <p className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Appearance
           </p>
-          <ThemeToggle />
+          <ThemePicker />
         </div>
       </SheetContent>
     </Sheet>

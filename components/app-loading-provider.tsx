@@ -45,7 +45,7 @@ export function AppLoadingProvider({ children }: { children: React.ReactNode }) 
     }
 
     document.body.style.overflow = "hidden"
-    const timeout = window.setTimeout(() => setLoading(false), 12_000)
+    const timeout = window.setTimeout(() => setLoading(false), 45_000)
     return () => {
       window.clearTimeout(timeout)
       document.body.style.removeProperty("overflow")

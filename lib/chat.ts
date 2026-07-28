@@ -1,4 +1,15 @@
+import { formatInTimeZone } from "date-fns-tz"
+
 import { formatGradeLevel } from "@/lib/grade-level"
+import { CLUB_TIMEZONE } from "@/lib/club-datetime"
+
+function clubDayKey(date: Date) {
+  return formatInTimeZone(date, CLUB_TIMEZONE, "yyyy-MM-dd")
+}
+
+function clubNow() {
+  return new Date()
+}
 
 export function chatInitials(name: string | null, email: string) {
   const source = name?.trim() || email
@@ -12,39 +23,19 @@ export function chatInitials(name: string | null, email: string) {
 
 export function formatMessageTime(iso: string) {
   const date = new Date(iso)
-  const now = new Date()
-  const sameDay =
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate()
+  const now = clubNow()
 
-  if (sameDay) {
-    return date.toLocaleTimeString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-    })
+  if (clubDayKey(date) === clubDayKey(now)) {
+    return formatInTimeZone(date, CLUB_TIMEZONE, "h:mm a")
   }
 
   const yesterday = new Date(now)
   yesterday.setDate(now.getDate() - 1)
-  const isYesterday =
-    date.getFullYear() === yesterday.getFullYear() &&
-    date.getMonth() === yesterday.getMonth() &&
-    date.getDate() === yesterday.getDate()
-
-  if (isYesterday) {
-    return `Yesterday ${date.toLocaleTimeString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-    })}`
+  if (clubDayKey(date) === clubDayKey(yesterday)) {
+    return `Yesterday ${formatInTimeZone(date, CLUB_TIMEZONE, "h:mm a")}`
   }
 
-  return date.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  })
+  return formatInTimeZone(date, CLUB_TIMEZONE, "MMM d, h:mm a")
 }
 
 export function formatThreadPreviewTime(iso: string | null) {
@@ -62,33 +53,20 @@ export function formatThreadPreviewTime(iso: string | null) {
   const diffDays = Math.floor(diffHours / 24)
   if (diffDays < 7) return `${diffDays}d`
 
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+  return formatInTimeZone(date, CLUB_TIMEZONE, "MMM d")
 }
 
 export function formatDayDivider(iso: string) {
   const date = new Date(iso)
-  const now = new Date()
-  const sameDay =
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate()
+  const now = clubNow()
 
-  if (sameDay) return "Today"
+  if (clubDayKey(date) === clubDayKey(now)) return "Today"
 
   const yesterday = new Date(now)
   yesterday.setDate(now.getDate() - 1)
-  const isYesterday =
-    date.getFullYear() === yesterday.getFullYear() &&
-    date.getMonth() === yesterday.getMonth() &&
-    date.getDate() === yesterday.getDate()
+  if (clubDayKey(date) === clubDayKey(yesterday)) return "Yesterday"
 
-  if (isYesterday) return "Yesterday"
-
-  return date.toLocaleDateString(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  })
+  return formatInTimeZone(date, CLUB_TIMEZONE, "EEEE, MMMM d")
 }
 
 export function memberSubtitle({
@@ -105,10 +83,9 @@ export function memberSubtitle({
   return parts.join(" · ") || "Club member"
 }
 
-export function adminThreadTitle() {
-  return "Admins"
-}
-
-export function adminThreadSubtitle() {
-  return "Message club admins"
+export function adminThreadSubtitle(adminName?: string | null) {
+  if (adminName?.trim()) {
+    return `Direct line to ${adminName.trim()}`
+  }
+  return "Club admin"
 }

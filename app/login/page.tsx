@@ -1,3 +1,5 @@
+import Link from "next/link"
+import { Compass } from "lucide-react"
 import { redirect } from "next/navigation"
 
 import { getProfile } from "@/lib/auth"
@@ -5,6 +7,7 @@ import { siteConfig } from "@/lib/site-config"
 import { LoginForm } from "@/components/login-form"
 import { SignOutButton } from "@/components/sign-out-button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 
 export default async function LoginPage({
   searchParams,
@@ -44,6 +47,13 @@ export default async function LoginPage({
       ) : null}
 
       <LoginForm />
+
+      <Button variant="outline" className="w-full" asChild>
+        <Link href="/">
+          <Compass className="size-4" />
+          Browse without signing in
+        </Link>
+      </Button>
     </div>
   )
 }
