@@ -101,6 +101,10 @@ export function ClubCalendar({
     ? eventTypeFlashColor[selectedPrimaryType]
     : undefined
   const defaultEventIso = clubDefaultIsoForDay(selected, 15, 30)
+  const selectedDayStart = startOfDaySafe(selected)
+  const todayStart = startOfDaySafe(today)
+  const isPastSelectedDay = selectedDayStart < todayStart
+  const canScheduleSelectedDay = canCreateEvent && !isPastSelectedDay
 
   if (!hydrated) {
     return (
@@ -283,7 +287,7 @@ export function ClubCalendar({
             ))}
             <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
               <span className="inline-flex size-5 items-center justify-center rounded-full text-[10px] font-semibold ring-[1.5px] ring-primary/45 ring-inset">
-                7
+                {today.getDate()}
               </span>
               Today
             </span>
@@ -310,7 +314,7 @@ export function ClubCalendar({
                 ? ` · ${selectedEvents.length} event${selectedEvents.length === 1 ? "" : "s"}`
                 : ""}
             </CardTitle>
-            {canCreateEvent ? (
+            {canScheduleSelectedDay ? (
               <>
                 <EventDialog
                   hideTrigger

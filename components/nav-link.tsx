@@ -17,11 +17,13 @@ export function NavLink({
   icon: Icon,
   label,
   exact,
+  showNotificationDot,
 }: {
   href: string
   icon: LucideIcon
   label: string
   exact?: boolean
+  showNotificationDot?: boolean
 }) {
   const pathname = usePathname()
   const active = exact
@@ -35,9 +37,15 @@ export function NavLink({
       className={cn(active && "font-medium")}
       asChild
     >
-      <Link href={href} aria-current={active ? "page" : undefined}>
+      <Link href={href} aria-current={active ? "page" : undefined} className="relative">
         <Icon className="size-4" />
         {label}
+        {showNotificationDot ? (
+          <span
+            className="absolute top-1 right-1 size-2 rounded-full bg-primary ring-2 ring-background"
+            aria-hidden
+          />
+        ) : null}
       </Link>
     </Button>
   )
@@ -49,12 +57,14 @@ export function MobileNavLink({
   label,
   exact,
   onNavigate,
+  showNotificationDot,
 }: {
   href: string
   icon: LucideIcon
   label: string
   exact?: boolean
   onNavigate?: () => void
+  showNotificationDot?: boolean
 }) {
   const pathname = usePathname()
   const active = exact
@@ -75,11 +85,17 @@ export function MobileNavLink({
     >
       <span
         className={cn(
-          "flex size-9 shrink-0 items-center justify-center rounded-lg",
+          "relative flex size-9 shrink-0 items-center justify-center rounded-lg",
           active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
         )}
       >
         <Icon className="size-5" />
+        {showNotificationDot ? (
+          <span
+            className="absolute top-0.5 right-0.5 size-2 rounded-full bg-primary ring-2 ring-background"
+            aria-hidden
+          />
+        ) : null}
       </span>
       <span className="flex-1">{label}</span>
     </Link>

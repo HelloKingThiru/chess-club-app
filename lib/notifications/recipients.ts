@@ -49,12 +49,37 @@ export async function getMemberRecipients(): Promise<MemberRecipient[]> {
     return []
   }
 
-  return ((data ?? []) as ProfileRow[])
-    .filter((row) => row.email?.includes("@"))
-    .map((row) => ({
+  const rows = (data ?? []) as ProfileRow[]
+  const recipients: MemberRecipient[] = []
+
+  for (const row of rows) {
+    let email = row.email?.trim() ?? ""
+
+    if (!email.includes("@")) {
+      const { data: authData, error: authError } =
+        await admin.auth.admin.getUserById(row.id)
+      if (authError) {
+        console.error(
+          `Failed to load auth email for ${row.id}:`,
+          authError.message
+        )
+      } else {
+        email = authData.user?.email?.trim() ?? ""
+        if (email.includes("@")) {
+          await admin.from("profiles").update({ email }).eq("id", row.id)
+        }
+      }
+    }
+
+    if (!email.includes("@")) continue
+
+    recipients.push({
       id: row.id,
-      email: row.email,
+      email,
       full_name: row.full_name,
       preferences: normalizePreferences(row.notification_preferences),
-    }))
+    })
+  }
+
+  return recipients
 }

@@ -51,7 +51,7 @@ Run through these on **production-like** env (`npm run build && npm run start`) 
 - [ ] Reorder lineup on `/board-order` (admin mode); refresh persists
 - [ ] Profile edit does **not** change board number (only board-order page)
 
-### Chat (`migration-v8` + **v13**)
+### Chat (`migration-v8` + **v13** + **v16** for read/unread)
 
 - [ ] Member picks an admin and sends a message
 - [ ] That admin sees the thread; other admins do not
@@ -105,6 +105,8 @@ Open [http://localhost:3000](http://localhost:3000).
 | `NEXT_PUBLIC_APP_URL` | Public site URL (set to `https://nchschessclub.com` in production) |
 | `RESEND_API_KEY` | Resend API key for email notifications |
 | `RESEND_FROM_EMAIL` | Sender, e.g. `NCHS Chess Club <notifications@nchschessclub.com>` |
+
+**Resend:** With `onboarding@resend.dev` as the sender, Resend only delivers to **your** Resend account email (good for testing). To email all members, verify your domain at [resend.com/domains](https://resend.com/domains) and set `RESEND_FROM_EMAIL` to an address on that domain (in Vercel env too).
 | `CRON_SECRET` | Random string — secures `/api/cron/event-reminders` (GitHub Actions + Vercel) |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Web push (optional) |
 | `VAPID_PRIVATE_KEY` | Web push (optional) |
@@ -133,7 +135,7 @@ Other free cron options: [cron-job.org](https://cron-job.org) or [Uptime Robot](
 ## Database
 
 1. Run [`supabase/setup-schema.sql`](supabase/setup-schema.sql) in the Supabase SQL editor.
-2. If upgrading an existing project, apply incremental migrations (`migration-v6.sql` … `migration-v14.sql`) in order as needed.
+2. If upgrading an existing project, apply incremental migrations (`migration-v6.sql` … `migration-v16.sql`) in order as needed.
 3. To wipe demo data and remove all accounts except yours, run [`supabase/cleanup-mock-data.sql`](supabase/cleanup-mock-data.sql) once in the SQL editor.
 4. Create member accounts from **Admin → Members**.
 

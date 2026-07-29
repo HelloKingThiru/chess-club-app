@@ -33,4 +33,5 @@ export type ChatDirectoryEntry = {
   lastMessageAt: string | null
   lastMessageSenderId: string | null
   updatedAt: string | null
+  lastReadAt?: string | null
 }

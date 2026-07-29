@@ -89,3 +89,21 @@ export function adminThreadSubtitle(adminName?: string | null) {
   }
   return "Club admin"
 }
+
+/** Unread when someone else sent the latest message after the user last opened the thread. */
+export function isChatThreadUnread(
+  thread: {
+    lastMessageAt: string | null
+    lastMessageSenderId: string | null
+    lastReadAt?: string | null
+  },
+  userId: string
+): boolean {
+  if (!thread.lastMessageAt || !thread.lastMessageSenderId) return false
+  if (thread.lastMessageSenderId === userId) return false
+  if (!thread.lastReadAt) return true
+  return (
+    new Date(thread.lastMessageAt).getTime() >
+    new Date(thread.lastReadAt).getTime()
+  )
+}

@@ -3,11 +3,11 @@
 import { revalidatePath } from "next/cache"
 
 import { requireProfile } from "@/lib/auth"
-import { memberSubtitle } from "@/lib/chat"
+import { memberSubtitle, isChatThreadUnread } from "@/lib/chat"
 import { isAdmin } from "@/lib/roles"
 import { createClient } from "@/lib/supabase/server"
 import type { ChatMessage, ChatThreadSummary, ChatDirectoryEntry } from "@/lib/types/chat"
-import type { ActionState } from "@/lib/types/auth"
+import type { ActionState, Profile } from "@/lib/types/auth"
 
 type ThreadRow = {
   id: string
@@ -93,6 +93,130 @@ function sortDirectory(entries: ChatDirectoryEntry[]) {
   })
 }
 
+async function loadThreadReadMap(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+): Promise<Map<string, string>> {
+  const { data, error } = await supabase
+    .from("chat_thread_reads")
+    .select("thread_id, read_at")
+    .eq("user_id", userId)
+
+  if (error?.message.includes("chat_thread_reads")) {
+    return new Map()
+  }
+
+  if (error) {
+    console.error("loadThreadReadMap:", error.message)
+    return new Map()
+  }
+
+  return new Map(
+    (data ?? []).map((row) => [
+      row.thread_id as string,
+      row.read_at as string,
+    ])
+  )
+}
+
+async function markThreadRead(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  threadId: string
+) {
+  const { error } = await supabase.from("chat_thread_reads").upsert(
+    {
+      thread_id: threadId,
+      user_id: userId,
+      read_at: new Date().toISOString(),
+    },
+    { onConflict: "thread_id,user_id" }
+  )
+
+  if (error?.message.includes("chat_thread_reads")) return
+  if (error) {
+    console.error("markThreadRead:", error.message)
+  }
+}
+
+async function userCanAccessThread(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  profile: Pick<Profile, "id" | "role">,
+  threadId: string
+) {
+  const { data: thread, error } = await supabase
+    .from("chat_threads")
+    .select("id, member_id, admin_id")
+    .eq("id", threadId)
+    .maybeSingle()
+
+  if (error?.message.includes("chat_threads") || error || !thread) {
+    return false
+  }
+
+  return (
+    thread.member_id === profile.id ||
+    (isAdmin(profile.role) && thread.admin_id === profile.id)
+  )
+}
+
+export async function hasChatUnreadMessages(): Promise<boolean> {
+  const profile = await requireProfile()
+  const supabase = await createClient()
+
+  let query = supabase
+    .from("chat_threads")
+    .select(
+      "id, last_message_at, last_message_sender_id"
+    )
+
+  if (!isAdmin(profile.role)) {
+    query = query.eq("member_id", profile.id)
+  } else {
+    query = query.eq("admin_id", profile.id)
+  }
+
+  const [{ data: threads, error: threadsError }, readMap] = await Promise.all([
+    query,
+    loadThreadReadMap(supabase, profile.id),
+  ])
+
+  if (threadsError?.message.includes("chat_threads")) return false
+  if (threadsError) {
+    console.error("hasChatUnreadMessages:", threadsError.message)
+    return false
+  }
+
+  for (const row of threads ?? []) {
+    if (
+      isChatThreadUnread(
+        {
+          lastMessageAt: row.last_message_at,
+          lastMessageSenderId: row.last_message_sender_id,
+          lastReadAt: readMap.get(row.id) ?? null,
+        },
+        profile.id
+      )
+    ) {
+      return true
+    }
+  }
+
+  return false
+}
+
+export async function markChatThreadReadAction(threadId: string): Promise<void> {
+  const profile = await requireProfile()
+  const supabase = await createClient()
+
+  const allowed = await userCanAccessThread(supabase, profile, threadId)
+  if (!allowed) return
+
+  await markThreadRead(supabase, profile.id, threadId)
+  revalidatePath("/", "layout")
+  revalidatePath("/chat")
+}
+
 export async function getChatThreadsForUser(): Promise<ChatThreadSummary[]> {
   const profile = await requireProfile()
   const supabase = await createClient()
@@ -142,7 +266,7 @@ export async function getAdminChatDirectory(): Promise<ChatDirectoryEntry[]> {
 
   const supabase = await createClient()
 
-  const [{ data: members, error: membersError }, { data: threads, error: threadsError }] =
+  const [{ data: members, error: membersError }, { data: threads, error: threadsError }, readMap] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -155,6 +279,7 @@ export async function getAdminChatDirectory(): Promise<ChatDirectoryEntry[]> {
           "id, member_id, admin_id, last_message_body, last_message_at, last_message_sender_id, updated_at"
         )
         .eq("admin_id", profile.id),
+      loadThreadReadMap(supabase, profile.id),
     ])
 
   if (membersError?.message.includes("profiles")) return []
@@ -199,6 +324,7 @@ export async function getAdminChatDirectory(): Promise<ChatDirectoryEntry[]> {
       lastMessageAt: thread?.last_message_at ?? null,
       lastMessageSenderId: thread?.last_message_sender_id ?? null,
       updatedAt: thread?.updated_at ?? null,
+      lastReadAt: thread?.id ? readMap.get(thread.id) ?? null : null,
     } satisfies ChatDirectoryEntry
   })
 
@@ -211,7 +337,7 @@ export async function getMemberChatDirectory(): Promise<ChatDirectoryEntry[]> {
 
   const supabase = await createClient()
 
-  const [{ data: admins, error: adminsError }, { data: threads, error: threadsError }] =
+  const [{ data: admins, error: adminsError }, { data: threads, error: threadsError }, readMap] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -224,6 +350,7 @@ export async function getMemberChatDirectory(): Promise<ChatDirectoryEntry[]> {
           "id, member_id, admin_id, last_message_body, last_message_at, last_message_sender_id, updated_at"
         )
         .eq("member_id", profile.id),
+      loadThreadReadMap(supabase, profile.id),
     ])
 
   if (adminsError?.message.includes("profiles")) return []
@@ -260,6 +387,7 @@ export async function getMemberChatDirectory(): Promise<ChatDirectoryEntry[]> {
       lastMessageAt: thread?.last_message_at ?? null,
       lastMessageSenderId: thread?.last_message_sender_id ?? null,
       updatedAt: thread?.updated_at ?? null,
+      lastReadAt: thread?.id ? readMap.get(thread.id) ?? null : null,
     } satisfies ChatDirectoryEntry
   })
 
@@ -300,6 +428,10 @@ export async function getChatMessages(threadId: string): Promise<ChatMessage[]> 
     console.error("getChatMessages:", error.message)
     return []
   }
+
+  await markThreadRead(supabase, profile.id, threadId)
+  revalidatePath("/", "layout")
+  revalidatePath("/chat")
 
   return ((data ?? []) as MessageRow[]).map(mapMessage)
 }

@@ -11,6 +11,7 @@ import {
 
 import { AdminModeToggle } from "@/components/admin-mode-toggle"
 import { MobileNavSheet } from "@/components/mobile-nav-sheet"
+import { MessagesNavLink } from "@/components/messages-nav-link"
 import { NavLink } from "@/components/nav-link"
 import { ThemeToggle } from "@/components/theme-toggle"
 
@@ -18,12 +19,14 @@ type SiteNavProps = {
   profileId?: string
   isAdmin?: boolean
   adminMode?: boolean
+  chatUnread?: boolean
 }
 
 export function SiteNav({
   profileId,
   isAdmin = false,
   adminMode = false,
+  chatUnread = false,
 }: SiteNavProps) {
   const memberItems = profileId
     ? [
@@ -37,9 +40,19 @@ export function SiteNav({
       <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Main">
         <NavLink href="/" icon={Home} label="Home" exact />
         <NavLink href="/calendar" icon={Calendar} label="Calendar" />
-        {memberItems.map(({ href, icon, label }) => (
-          <NavLink key={href} href={href} icon={icon} label={label} />
-        ))}
+        {memberItems.map(({ href, icon, label }) =>
+          href === "/chat" ? (
+            <MessagesNavLink
+              key={href}
+              href={href}
+              icon={icon}
+              label={label}
+              initialUnread={chatUnread}
+            />
+          ) : (
+            <NavLink key={href} href={href} icon={icon} label={label} />
+          )
+        )}
         <NavLink href="/board-order" icon={ClipboardList} label="Board order" />
       </nav>
 
@@ -60,6 +73,7 @@ export function SiteNav({
           profileId={profileId}
           isAdmin={isAdmin}
           adminMode={adminMode}
+          chatUnread={chatUnread}
         />
       </div>
     </div>

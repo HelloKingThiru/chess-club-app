@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { LogIn } from "lucide-react"
 
+import { hasChatUnreadMessages } from "@/app/actions/chat"
 import { getProfile } from "@/lib/auth"
 import { getAdminMode } from "@/lib/admin-mode"
 import { siteConfig } from "@/lib/site-config"
@@ -10,6 +11,7 @@ import { Button } from "@/components/ui/button"
 export async function SiteHeader() {
   const profile = await getProfile()
   const adminMode = profile?.role === "admin" ? await getAdminMode() : false
+  const chatUnread = profile ? await hasChatUnreadMessages() : false
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -30,6 +32,7 @@ export async function SiteHeader() {
             profileId={profile.id}
             isAdmin={profile.role === "admin"}
             adminMode={adminMode}
+            chatUnread={chatUnread}
           />
         ) : (
           <div className="flex items-center gap-2">

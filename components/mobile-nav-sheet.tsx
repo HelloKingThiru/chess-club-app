@@ -16,6 +16,7 @@ import {
 import Link from "next/link"
 import { siteConfig } from "@/lib/site-config"
 import { AdminModeToggle } from "@/components/admin-mode-toggle"
+import { MessagesMobileNavLink } from "@/components/messages-nav-link"
 import { MobileNavLink } from "@/components/nav-link"
 import { ThemePicker } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
@@ -39,12 +40,14 @@ type MobileNavSheetProps = {
   profileId?: string
   isAdmin?: boolean
   adminMode?: boolean
+  chatUnread?: boolean
 }
 
 export function MobileNavSheet({
   profileId,
   isAdmin = false,
   adminMode = false,
+  chatUnread = false,
 }: MobileNavSheetProps) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
@@ -93,13 +96,23 @@ export function MobileNavSheet({
           <ul className="space-y-1">
             {items.map(({ href, icon, label, exact }) => (
               <li key={href}>
-                <MobileNavLink
-                  href={href}
-                  icon={icon}
-                  label={label}
-                  exact={exact}
-                  onNavigate={() => setOpen(false)}
-                />
+                {href === "/chat" ? (
+                  <MessagesMobileNavLink
+                    href={href}
+                    icon={icon}
+                    label={label}
+                    initialUnread={chatUnread}
+                    onNavigate={() => setOpen(false)}
+                  />
+                ) : (
+                  <MobileNavLink
+                    href={href}
+                    icon={icon}
+                    label={label}
+                    exact={exact}
+                    onNavigate={() => setOpen(false)}
+                  />
+                )}
               </li>
             ))}
           </ul>

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import { MessageSquare, Search } from "lucide-react"
 
-import { chatInitials } from "@/lib/chat"
+import { chatInitials, isChatThreadUnread } from "@/lib/chat"
 import { ClientThreadPreviewTime } from "@/components/client-thread-preview-time"
 import type { ChatDirectoryEntry } from "@/lib/types/chat"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -150,7 +150,8 @@ function DirectoryRow({
   isNew?: boolean
 }) {
   const needsReply =
-    entry.lastMessageSenderId && entry.lastMessageSenderId !== currentUserId
+    !isNew &&
+    isChatThreadUnread(entry, currentUserId)
 
   return (
     <li>
@@ -207,7 +208,7 @@ function DirectoryRow({
         {needsReply ? (
           <span
             className="mt-2 size-2 shrink-0 rounded-full bg-primary"
-            aria-label="Needs reply"
+            aria-label="Unread message"
           />
         ) : (
           <MessageSquare className="mt-2 size-4 shrink-0 text-muted-foreground/70" />

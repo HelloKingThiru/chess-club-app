@@ -1,13 +1,19 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { ArrowLeft, MessageSquare, Shield, Users } from "lucide-react"
 import { toast } from "sonner"
 
-import { sendChatMessageAction, getChatMessages } from "@/app/actions/chat"
+import {
+  sendChatMessageAction,
+  getChatMessages,
+  markChatThreadReadAction,
+} from "@/app/actions/chat"
 import { ChatComposer } from "@/components/chat/chat-composer"
 import { ChatDirectoryList } from "@/components/chat/chat-directory-list"
 import { ChatMessageList } from "@/components/chat/chat-message-list"
+import { dispatchChatReadStateChanged } from "@/components/messages-nav-link"
 import {
   adminThreadSubtitle,
   chatInitials,
@@ -35,6 +41,7 @@ export function ChatShell({
   initialThreadId,
   initialMessages,
 }: ChatShellProps) {
+  const router = useRouter()
   const admin = isAdmin(currentUser.role)
   const [directoryList, setDirectoryList] = useState(directory)
   const [selectedContactId, setSelectedContactId] = useState<string | null>(
@@ -88,6 +95,17 @@ export function ChatShell({
     })
   }, [admin])
 
+  const markThreadReadLocally = useCallback((threadId: string) => {
+    const now = new Date().toISOString()
+    setDirectoryList((prev) =>
+      prev.map((entry) =>
+        entry.threadId === threadId ? { ...entry, lastReadAt: now } : entry
+      )
+    )
+    dispatchChatReadStateChanged()
+    router.refresh()
+  }, [router])
+
   useEffect(() => {
     setNotifyMemberByEmail(false)
   }, [selectedContactId])
@@ -106,13 +124,14 @@ export function ChatShell({
       if (!cancelled) {
         setMessages(next)
         setLoadingMessages(false)
+        markThreadReadLocally(selectedThreadId)
       }
     })
 
     return () => {
       cancelled = true
     }
-  }, [selectedThreadId])
+  }, [selectedThreadId, markThreadReadLocally])
 
   function handleSelectEntry(entry: ChatDirectoryEntry) {
     setSelectedContactId(entry.contactId)
@@ -126,6 +145,15 @@ export function ChatShell({
       return [...prev, message]
     })
     syncDirectoryPreview(message, contactId)
+
+    if (
+      message.senderId !== currentUser.id &&
+      message.threadId === selectedThreadId
+    ) {
+      void markChatThreadReadAction(message.threadId).then(() => {
+        markThreadReadLocally(message.threadId)
+      })
+    }
   }
 
   function handleSend(body: string, options?: { notifyRecipient?: boolean }) {
