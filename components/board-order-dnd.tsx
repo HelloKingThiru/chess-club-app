@@ -79,6 +79,13 @@ function findContainer(state: BoardOrderState, id: UniqueIdentifier) {
   return null
 }
 
+function profileHrefForPlayer(player: Profile | EventBoardPlayer) {
+  if (isDeletedMemberPlayer(player) || player.id.startsWith("deleted:")) {
+    return undefined
+  }
+  return `/profile/${player.id}`
+}
+
 function StaticPlayerRow({
   player,
   boardNumber,
@@ -91,6 +98,7 @@ function StaticPlayerRow({
       <BoardPlayerRow
         player={player}
         boardNumber={boardNumber}
+        href={profileHrefForPlayer(player)}
       />
     </li>
   )
@@ -128,6 +136,7 @@ function SortablePlayer({
         boardNumber={boardNumber}
         draggable={!deleted}
         showEmail={false}
+        href={profileHrefForPlayer(player)}
         dragHandleProps={deleted ? undefined : { ...attributes, ...listeners }}
       />
     </li>

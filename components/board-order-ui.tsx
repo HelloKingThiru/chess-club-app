@@ -1,6 +1,6 @@
 import type { HTMLAttributes } from "react"
 import Link from "next/link"
-import { ChevronRight, GripVertical, Trophy } from "lucide-react"
+import { GripVertical, Trophy } from "lucide-react"
 
 import { MAX_BOARD_SLOTS } from "@/lib/board-order"
 import { formatGradeLevel } from "@/lib/grade-level"
@@ -270,7 +270,7 @@ export function BoardPlayerRow({
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          {draggable && profileHref ? (
+          {profileHref ? (
             <Link
               href={profileHref}
               className="truncate text-base font-semibold tracking-tight hover:underline"
@@ -312,21 +312,9 @@ export function BoardPlayerRow({
               {grade && grade !== "Not set" ? <span aria-hidden>·</span> : null}
               <span className="truncate">{player.email}</span>
             </>
-          ) : profileHref ? (
-            <>
-              {grade && grade !== "Not set" ? <span aria-hidden>·</span> : null}
-              <span>View profile</span>
-            </>
           ) : null}
         </div>
       </div>
-
-      {profileHref && !draggable ? (
-        <ChevronRight
-          className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground"
-          aria-hidden
-        />
-      ) : null}
     </>
   )
 
@@ -335,17 +323,8 @@ export function BoardPlayerRow({
     meta.rowClass,
     meta.accentClass,
     isDragOverlay && "shadow-lg ring-2 ring-primary/20",
-    href && !draggable && "hover:bg-accent/40",
     deleted && "opacity-80"
   )
-
-  if (profileHref && !draggable) {
-    return (
-      <Link href={profileHref} className={rowClass}>
-        {body}
-      </Link>
-    )
-  }
 
   return <div className={rowClass}>{body}</div>
 }

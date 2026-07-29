@@ -44,8 +44,7 @@ export default async function BoardOrderPage() {
         <Alert>
           <AlertTitle>How to read this</AlertTitle>
           <AlertDescription>
-            Lower board numbers are stronger. Board order updates when admins save
-            the lineup.
+            Lower board numbers are stronger. Tap a name to open that profile.
           </AlertDescription>
         </Alert>
       )}
