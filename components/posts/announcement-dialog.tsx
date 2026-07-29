@@ -212,17 +212,6 @@ export function AnnouncementDialog({
                   </div>
                 </div>
               ) : null}
-
-              {pinStrategy === "until_removed" ? (
-                <div className="space-y-2">
-                  <Label>Start pinning at (optional)</Label>
-                  <ClubDateTimePicker
-                    id="mp-pin-start-optional"
-                    name="pin_start_optional"
-                    defaultIso={post?.pinned_from ?? undefined}
-                  />
-                </div>
-              ) : null}
             </fieldset>
           </DialogBody>
 

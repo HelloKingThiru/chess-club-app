@@ -1,15 +1,13 @@
 import {
   MAX_BOARD_SLOTS,
-  buildBoardOrderState,
-  shouldShowUnassigned,
+  displayBoardOrderState,
 } from "@/lib/board-order"
 import type { Profile } from "@/lib/types/auth"
-import { BoardOrderEditable } from "@/components/board-order-editable"
+import { BoardOrderRoster } from "@/components/board-order-client"
 import {
   BoardOrderStats,
   BoardPlayerRow,
   BoardSectionHeader,
-  OpenBoardSlot,
 } from "@/components/board-order-ui"
 
 export function BoardOrderTable({
@@ -19,25 +17,11 @@ export function BoardOrderTable({
   players: Profile[]
   editable?: boolean
 }) {
-  if (editable) {
-    return <BoardOrderEditable players={players} />
-  }
-
-  const { lineup, unassigned } = buildBoardOrderState(players)
-  const showUnassigned = shouldShowUnassigned(players)
-
-  return (
-    <BoardOrderRoster
-      lineup={lineup}
-      unassigned={unassigned}
-      showUnassigned={showUnassigned}
-    />
-  )
+  return <BoardOrderRoster players={players} editable={editable} />
 }
 
 export function BoardOrderSummary({ players }: { players: Profile[] }) {
-  const { lineup, unassigned } = buildBoardOrderState(players)
-  const showUnassigned = shouldShowUnassigned(players)
+  const { lineup, unassigned, showUnassigned } = displayBoardOrderState(players)
 
   return (
     <BoardOrderStats
@@ -54,96 +38,6 @@ export type BoardOrderEntry = {
   name: string
   boardNumber: number | null
   href?: string
-}
-
-function BoardOrderRoster({
-  lineup,
-  unassigned,
-  showUnassigned,
-}: {
-  lineup: Profile[]
-  unassigned: Profile[]
-  showUnassigned: boolean
-}) {
-  if (lineup.length === 0 && unassigned.length === 0) {
-    return (
-      <div className="rounded-xl border border-dashed px-6 py-10 text-center">
-        <p className="font-medium">No one listed yet</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Members will show up here once accounts are created.
-        </p>
-      </div>
-    )
-  }
-
-  const openSlots =
-    showUnassigned && lineup.length < MAX_BOARD_SLOTS
-      ? Array.from(
-          { length: MAX_BOARD_SLOTS - lineup.length },
-          (_, index) => lineup.length + index + 1
-        )
-      : []
-
-  return (
-    <div className="space-y-8">
-      <section className="space-y-3">
-        <BoardSectionHeader
-          title="Starting lineup"
-          description="Board 1 is the strongest player. Lower numbers play higher boards."
-          count={`${lineup.length} / ${MAX_BOARD_SLOTS}`}
-        />
-        {lineup.length > 0 || openSlots.length > 0 ? (
-          <ol className="space-y-2">
-            {lineup.map((player, index) => (
-              <li key={player.id} className="list-none">
-                <BoardPlayerRow
-                  player={player}
-                  boardNumber={index + 1}
-                  href={`/profile/${player.id}`}
-                />
-              </li>
-            ))}
-            {openSlots.map((boardNumber) => (
-              <li key={`open-${boardNumber}`} className="list-none">
-                <OpenBoardSlot boardNumber={boardNumber} />
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <div className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-            No board order set yet.
-          </div>
-        )}
-      </section>
-
-      {showUnassigned ? (
-        <section className="space-y-3">
-          <BoardSectionHeader
-            title="On the bench"
-            description="These members are not assigned to a board right now."
-            count={String(unassigned.length)}
-          />
-          {unassigned.length > 0 ? (
-            <ul className="space-y-2">
-              {unassigned.map((player) => (
-                <li key={player.id} className="list-none">
-                  <BoardPlayerRow
-                    player={player}
-                    boardNumber={null}
-                    href={`/profile/${player.id}`}
-                  />
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-              Everyone is on a board.
-            </div>
-          )}
-        </section>
-      ) : null}
-    </div>
-  )
 }
 
 /** Used by event attendee views that only have id/name/board. */

@@ -3,11 +3,7 @@ import { ClipboardList } from "lucide-react"
 import { MAX_BOARD_SLOTS } from "@/lib/board-order"
 import { canUseAdminTools } from "@/lib/admin-mode"
 import { getProfile } from "@/lib/auth"
-import {
-  MEMBER_PROFILE_COLUMNS,
-  PUBLIC_PROFILE_COLUMNS,
-  toProfile,
-} from "@/lib/guest-access"
+import { PUBLIC_PROFILE_COLUMNS, toProfile } from "@/lib/guest-access"
 import { createClient } from "@/lib/supabase/server"
 import { BoardOrderSummary, BoardOrderTable } from "@/components/board-order-table"
 import { PageHeader, PageShell } from "@/components/page-shell"
@@ -15,20 +11,13 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default async function BoardOrderPage() {
   const profile = await getProfile()
-  const isGuest = !profile
   const showAdmin = await canUseAdminTools(profile)
-  const usePublicProfiles = isGuest || !showAdmin
   const supabase = await createClient()
 
-  const { data: profiles } = usePublicProfiles
-    ? await supabase
-        .from("public_profiles")
-        .select(PUBLIC_PROFILE_COLUMNS)
-        .order("board_number", { ascending: true, nullsFirst: false })
-    : await supabase
-        .from("profiles")
-        .select(MEMBER_PROFILE_COLUMNS)
-        .order("board_number", { ascending: true, nullsFirst: false })
+  const { data: profiles } = await supabase
+    .from("public_profiles")
+    .select(PUBLIC_PROFILE_COLUMNS)
+    .order("board_number", { ascending: true, nullsFirst: false })
 
   const players = (profiles ?? []).map((row) =>
     toProfile(row as Record<string, unknown>)
@@ -55,7 +44,8 @@ export default async function BoardOrderPage() {
         <Alert>
           <AlertTitle>How to read this</AlertTitle>
           <AlertDescription>
-            Lower board numbers are stronger. Tap a player to open their profile.
+            Lower board numbers are stronger. Board order updates when admins save
+            the lineup.
           </AlertDescription>
         </Alert>
       )}

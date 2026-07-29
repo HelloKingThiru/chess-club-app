@@ -59,18 +59,6 @@ export function parseAnnouncementPin(
   }
 
   if (strategy === "until_removed") {
-    const start = String(formData.get("pin_start_optional") ?? "").trim()
-    if (start) {
-      const startDate = new Date(start)
-      if (Number.isNaN(startDate.getTime())) {
-        return { error: "Invalid start time." }
-      }
-      return {
-        pinned_from: startDate.toISOString(),
-        pinned_until: null,
-        pin_indefinite: true,
-      }
-    }
     return {
       pinned_from: null,
       pinned_until: null,

@@ -1,9 +1,10 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { connection } from "next/server"
 import { Calendar, GraduationCap, Mail, MapPin, Phone, Shield, User } from "lucide-react"
 
 import { getProfile } from "@/lib/auth"
-import { canUseAdminTools } from "@/lib/admin-mode"
+import { getAdminMode } from "@/lib/admin-mode"
 import {
   MEMBER_PROFILE_COLUMNS,
   PUBLIC_PROFILE_COLUMNS,
@@ -126,10 +127,13 @@ type ProfilePageProps = {
 }
 
 export default async function ProfilePage({ params }: ProfilePageProps) {
+  await connection()
   const { id } = await params
   const currentUser = await getProfile()
   const isGuest = !currentUser
   const isOwnProfile = currentUser?.id === id
+  const adminModeOn =
+    currentUser?.role === "admin" ? await getAdminMode() : false
   const usePublicProfile =
     !isOwnProfile && (!currentUser || currentUser.role !== "admin")
   const supabase = await createClient()
@@ -154,7 +158,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     Boolean(currentUser) &&
     currentUser!.role === "admin" &&
     !isOwnProfile &&
-    (await canUseAdminTools(currentUser))
+    adminModeOn
   const notificationPreferences = isOwnProfile
     ? await getNotificationPreferences()
     : null

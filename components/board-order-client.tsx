@@ -14,6 +14,12 @@ const BoardOrderDnD = dynamic(
   }
 )
 
-export function BoardOrderEditable({ players }: { players: Profile[] }) {
-  return <BoardOrderDnD players={players} editable />
+export function BoardOrderRoster({
+  players,
+  editable = false,
+}: {
+  players: Profile[]
+  editable?: boolean
+}) {
+  return <BoardOrderDnD players={players} editable={editable} />
 }

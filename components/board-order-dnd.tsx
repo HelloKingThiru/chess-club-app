@@ -37,6 +37,7 @@ import {
   buildEventBoardOrderFromClubOrder,
   buildEventBoardOrderState,
   collapseUnassigned,
+  displayBoardOrderState,
   lineupBoardNumbers,
   shouldShowUnassigned,
   type BoardOrderState,
@@ -78,13 +79,6 @@ function findContainer(state: BoardOrderState, id: UniqueIdentifier) {
   return null
 }
 
-function profileHrefForPlayer(player: Profile | EventBoardPlayer) {
-  if (isDeletedMemberPlayer(player) || player.id.startsWith("deleted:")) {
-    return undefined
-  }
-  return `/profile/${player.id}`
-}
-
 function StaticPlayerRow({
   player,
   boardNumber,
@@ -97,7 +91,6 @@ function StaticPlayerRow({
       <BoardPlayerRow
         player={player}
         boardNumber={boardNumber}
-        href={profileHrefForPlayer(player)}
       />
     </li>
   )
@@ -134,7 +127,7 @@ function SortablePlayer({
         player={player}
         boardNumber={boardNumber}
         draggable={!deleted}
-        showEmail
+        showEmail={false}
         dragHandleProps={deleted ? undefined : { ...attributes, ...listeners }}
       />
     </li>
@@ -339,15 +332,24 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
   const router = useRouter()
   const eventMode = Boolean(eventId)
   const eventPlayers = players as EventBoardPlayer[]
-  const showUnassigned = shouldShowUnassigned(players)
+  const clubDisplay = useMemo(
+    () => (eventMode ? null : displayBoardOrderState(players as Profile[])),
+    [eventMode, players]
+  )
+  const showUnassigned = eventMode
+    ? shouldShowUnassigned(players)
+    : (clubDisplay?.showUnassigned ?? false)
   const buildState = useMemo(
     () => (eventId ? buildEventBoardOrderState : buildBoardOrderState),
     [eventId]
   )
   const seed = useMemo(() => {
+    if (clubDisplay) {
+      return { lineup: clubDisplay.lineup, unassigned: clubDisplay.unassigned }
+    }
     const built = buildState(players)
     return showUnassigned ? built : collapseUnassigned(built)
-  }, [buildState, players, showUnassigned])
+  }, [buildState, clubDisplay, players, showUnassigned])
   const [state, setState] = useState(seed)
   const stateRef = useRef(state)
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null)
@@ -356,9 +358,16 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
   stateRef.current = state
 
   useEffect(() => {
+    if (clubDisplay) {
+      setState({
+        lineup: clubDisplay.lineup,
+        unassigned: clubDisplay.unassigned,
+      })
+      return
+    }
     const built = buildState(players)
     setState(showUnassigned ? built : collapseUnassigned(built))
-  }, [buildState, players, showUnassigned])
+  }, [buildState, clubDisplay, players, showUnassigned])
 
   useEffect(() => {
     if (!activeId) return
@@ -651,7 +660,6 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
                         : null
                     }
                     draggable
-                    showEmail
                     isDragOverlay
                   />
                 ) : null}

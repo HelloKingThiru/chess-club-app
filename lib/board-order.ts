@@ -25,6 +25,18 @@ export function shouldShowUnassigned(players: Profile[]) {
   return players.length > MAX_BOARD_SLOTS
 }
 
+/** Read-only views: show everyone on boards when the club has ≤ MAX_BOARD_SLOTS members. */
+export function displayBoardOrderState(players: Profile[]): BoardOrderState & {
+  showUnassigned: boolean
+} {
+  const built = buildBoardOrderState(players)
+  const showUnassigned = shouldShowUnassigned(players)
+  if (showUnassigned) {
+    return { ...built, showUnassigned: true }
+  }
+  return { ...collapseUnassigned(built), showUnassigned: false }
+}
+
 export function collapseUnassigned(state: BoardOrderState): BoardOrderState {
   if (state.unassigned.length === 0) return state
   return {
