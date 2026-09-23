@@ -29,7 +29,7 @@ export default async function LoginPage({
         </span>
         <h1 className="text-2xl font-semibold tracking-tight">{siteConfig.name}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Sign in with the email and password your admin gave you.
+          Use your school email and the password from your welcome email.
         </p>
       </div>
 
