@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react"
 import { Loader2, Plus, UserPlus } from "lucide-react"
 
 import { createUserAction } from "@/app/actions/auth"
+import { GRADE_LEVELS, gradeLevelOptionLabel } from "@/lib/grade-level"
 import type { ActionState } from "@/lib/types/auth"
 import { useActionToasts } from "@/hooks/use-action-toasts"
 import { Button } from "@/components/ui/button"
@@ -69,7 +70,8 @@ export function CreateUserDialog({
         <DialogHeader>
           <DialogTitle>Create member</DialogTitle>
           <DialogDescription>
-            Add a member account with email and password.
+            Add a member account. They will get an email with their sign-in
+            details and a reminder to change the password.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -77,51 +79,75 @@ export function CreateUserDialog({
           className="flex min-h-0 flex-1 flex-col overflow-hidden"
         >
           <DialogBody className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="cu-full_name">Full name</Label>
-              <Input id="cu-full_name" name="full_name" required />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="cu-full_name">Full name</Label>
+                <Input id="cu-full_name" name="full_name" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cu-email">Email</Label>
+                <Input id="cu-email" name="email" type="email" required />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="cu-email">Email</Label>
-              <Input id="cu-email" name="email" type="email" required />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="cu-phone_number">Phone</Label>
+                <PhoneInput
+                  id="cu-phone_number"
+                  name="phone_number"
+                  placeholder="5551234567"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cu-grade_level">Grade</Label>
+                <FormSelect
+                  id="cu-grade_level"
+                  name="grade_level"
+                  defaultValue="__none__"
+                  emptyValue="__none__"
+                  placeholder="Not set"
+                  options={[
+                    { value: "__none__", label: "Not set" },
+                    ...GRADE_LEVELS.map((grade) => ({
+                      value: String(grade),
+                      label: gradeLevelOptionLabel(grade),
+                    })),
+                  ]}
+                />
+              </div>
             </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor="cu-phone_number">Phone</Label>
-              <PhoneInput
-                id="cu-phone_number"
-                name="phone_number"
-                placeholder="5551234567"
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="cu-password">Password</Label>
+                <Input
+                  id="cu-password"
+                  name="password"
+                  type="password"
+                  minLength={8}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cu-role">Role</Label>
+                <FormSelect
+                  id="cu-role"
+                  name="role"
+                  defaultValue="regular"
+                  options={[
+                    { value: "regular", label: "Member" },
+                    { value: "admin", label: "Admin" },
+                  ]}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="cu-password">Password</Label>
-              <Input
-                id="cu-password"
-                name="password"
-                type="password"
-                minLength={8}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cu-role">Role</Label>
-              <FormSelect
-                id="cu-role"
-                name="role"
-                defaultValue="regular"
-                options={[
-                  { value: "regular", label: "Member" },
-                  { value: "admin", label: "Admin" },
-                ]}
-              />
-            </div>
-          </div>
           </DialogBody>
           <DialogFooter>
-            <Button type="submit" size="lg" disabled={pending} className="w-full sm:w-auto">
+            <Button
+              type="submit"
+              size="lg"
+              disabled={pending}
+              className="w-full sm:w-auto"
+            >
               {pending ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (

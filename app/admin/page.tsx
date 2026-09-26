@@ -182,7 +182,7 @@ export default async function AdminPage() {
           <AdminActionCard
             icon={UserPlus}
             title="Create member"
-            description="Add a member account with email and password."
+            description="Add a member account. They get an email with a temporary password and a reminder to change it."
             action={<CreateUserDialog triggerClassName="w-full" />}
           />
         </div>

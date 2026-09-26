@@ -5,6 +5,7 @@ import { connection } from "next/server"
 import { redirect } from "next/navigation"
 
 import { assertAdminTools } from "@/lib/admin-mode"
+import { provisionMemberAccount } from "@/lib/members/provision-member"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { loginErrorMessage } from "@/lib/supabase/auth-errors"
 import { createClient } from "@/lib/supabase/server"
@@ -54,48 +55,34 @@ export async function createUserAction(
   const email = String(formData.get("email") ?? "").trim()
   const password = String(formData.get("password") ?? "")
   const phoneNumber = String(formData.get("phone_number") ?? "").trim()
+  const gradeLevelRaw = String(formData.get("grade_level") ?? "").trim()
   const role = String(formData.get("role") ?? "regular") as UserRole
-
-  if (!fullName || !email || !password) {
-    return { error: "Name, email, and password are required." }
-  }
-
-  if (password.length < 8) {
-    return { error: "Password must be at least 8 characters." }
-  }
-
-  if (role !== "admin" && role !== "regular") {
-    return { error: "Invalid role selected." }
-  }
 
   try {
     await connection()
     const admin = createAdminClient()
-    const { data, error } = await admin.auth.admin.createUser({
+    const result = await provisionMemberAccount(admin, {
+      fullName,
       email,
       password,
-      email_confirm: true,
-      user_metadata: {
-        full_name: fullName,
-        role,
-        phone_number: phoneNumber || null,
-      },
+      phoneNumber,
+      gradeLevel: gradeLevelRaw ? Number(gradeLevelRaw) : null,
+      role,
     })
 
-    if (error) {
-      return { error: error.message }
-    }
-
-    if (data.user && phoneNumber) {
-      await admin.from("profiles").update({
-        phone_number: phoneNumber || null,
-      }).eq("id", data.user.id)
+    if (!result.ok) {
+      if (result.accountKept) {
+        revalidatePath("/board-order")
+        revalidatePath("/", "layout")
+      }
+      return { error: result.error }
     }
 
     revalidatePath("/board-order")
     revalidatePath("/", "layout")
+    const label = role === "admin" ? "Admin" : "Member"
     return {
-      success: `${role === "admin" ? "Admin" : "Member"} account created for ${email}.`,
+      success: `${label} account created for ${result.email}. A welcome email was sent with a temporary password and instructions to change it.`,
     }
   } catch (error) {
     return {

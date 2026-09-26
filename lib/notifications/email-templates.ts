@@ -146,8 +146,7 @@ export function chatMessageEmail({
   threadId: string
   recipientKind: "admin" | "member"
 }) {
-  const preview =
-    body.length > 500 ? `${body.slice(0, 500).trimEnd()}…` : body
+  const preview = body.length > 500 ? `${body.slice(0, 500).trimEnd()}…` : body
   const subject =
     recipientKind === "admin"
       ? `New chat message from ${senderName}`
@@ -167,6 +166,30 @@ export function chatMessageEmail({
      <p style="margin: 0 0 12px; white-space: pre-wrap; padding: 12px; background: #f3f4f6; border-radius: 8px;">${escapeHtml(preview)}</p>
      ${button("Open chat", appUrl(`/chat?thread=${threadId}`))}`,
     footerNote
+  )
+
+  return { subject, html }
+}
+
+export function accountCreatedEmail({
+  memberName,
+  email,
+  temporaryPassword,
+}: {
+  memberName: string
+  email: string
+  temporaryPassword: string
+}) {
+  const subject = `Your ${siteConfig.name} account is ready`
+  const html = layout(
+    "Your account is ready",
+    `<p style="margin: 0 0 12px;">Hi ${escapeHtml(memberName)},</p>
+     <p style="margin: 0 0 12px;">A club administrator created a ${escapeHtml(siteConfig.name)} account for you. Sign in with the email and temporary password below, then change that password.</p>
+     <p style="margin: 0 0 8px;"><strong>Email:</strong> ${escapeHtml(email)}</p>
+     <p style="margin: 0 0 12px;"><strong>Temporary password:</strong> ${escapeHtml(temporaryPassword)}</p>
+     <p style="margin: 0 0 12px;">After you sign in, open your profile and choose <strong>Change password</strong>. Enter this temporary password as your current password, then pick a new one.</p>
+     ${button("Sign in", appUrl("/login"))}`,
+    `This message was sent because an account was created for you on ${siteConfig.name}.`
   )
 
   return { subject, html }

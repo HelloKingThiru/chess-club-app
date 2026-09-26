@@ -67,6 +67,7 @@ Run through these on **production-like** env (`npm run build && npm run start`) 
 ### Notifications
 
 - [ ] Profile → email toggles save (`migration-v7`)
+- [ ] Creating a member sends a welcome email with the temporary password and a reminder to change it
 - [ ] New announcement/event emails (opt-in members)
 - [ ] Cron: `GET /api/cron/event-reminders` with `Authorization: Bearer <CRON_SECRET>` returns 200 (GitHub Action or manual curl)
 
@@ -118,6 +119,7 @@ Open [http://localhost:3000](http://localhost:3000).
 - **New event** — email when an event is posted
 - **3 days / 1 day before events** — cron reminders (event + enrollment preferences)
 - **Chat** — admin emailed when a member messages them; optional email when admin notifies member
+- **Account created** — welcome email with a temporary password and a reminder to change it
 - **Account deleted** — email to the removed member’s address
 
 Reminders run daily at **9:00 AM US Central** via **GitHub Actions** (free). See [`.github/workflows/event-reminders.yml`](.github/workflows/event-reminders.yml).
