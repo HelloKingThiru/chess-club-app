@@ -13,6 +13,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragMoveEvent,
   type DragStartEvent,
   type UniqueIdentifier,
 } from "@dnd-kit/core"
@@ -33,6 +34,7 @@ import {
 } from "@/app/actions/posts"
 import {
   MAX_BOARD_SLOTS,
+  VARSITY_BOARD_SLOTS,
   buildBoardOrderState,
   buildEventBoardOrderFromClubOrder,
   buildEventBoardOrderState,
@@ -54,14 +56,30 @@ import {
 } from "@/components/board-order-ui"
 import {
   applyBoardOrderMove,
+  applyClubLadderDrag,
+  applyClubLadderMove,
   boardOrderChanged,
-  lineupToSave,
   type BoardOrderMove,
 } from "@/lib/board-order-moves"
 import { cn } from "@/lib/utils"
 
 const LINEUP_CONTAINER = "lineup"
 const UNASSIGNED_CONTAINER = "unassigned"
+
+function clientYFromActivator(activatorEvent: Event, deltaY = 0) {
+  let y: number | null = null
+  if (
+    typeof TouchEvent !== "undefined" &&
+    activatorEvent instanceof TouchEvent
+  ) {
+    const touch = activatorEvent.touches[0] ?? activatorEvent.changedTouches[0]
+    y = touch ? touch.clientY : null
+  } else if (activatorEvent instanceof MouseEvent) {
+    y = activatorEvent.clientY
+  }
+  if (y == null) return null
+  return y + deltaY
+}
 
 function findPlayer(state: BoardOrderState, id: UniqueIdentifier) {
   return (
@@ -184,44 +202,59 @@ function BoardOrderSections({
   editable,
   showUnassigned,
   eventMode = false,
+  clubLadder = false,
 }: {
   state: BoardOrderState
   editable: boolean
   showUnassigned: boolean
   eventMode?: boolean
+  clubLadder?: boolean
 }) {
   const displayState = showUnassigned ? state : collapseUnassigned(state)
   const lineupItems = lineupBoardNumbers(displayState.lineup)
+  const slotLimit = clubLadder ? VARSITY_BOARD_SLOTS : MAX_BOARD_SLOTS
 
   const openSlots =
-    showUnassigned && !editable && displayState.lineup.length < MAX_BOARD_SLOTS
+    !editable &&
+    displayState.lineup.length < slotLimit &&
+    (clubLadder || showUnassigned)
       ? Array.from(
-          { length: MAX_BOARD_SLOTS - displayState.lineup.length },
+          { length: slotLimit - displayState.lineup.length },
           (_, index) => displayState.lineup.length + index + 1
         )
       : []
 
-  const lineupTitle = showUnassigned
-    ? "Starting lineup"
-    : eventMode
-      ? "Attendees"
-      : "Starting lineup"
-  const lineupDescription = editable
-    ? eventMode && showUnassigned
-      ? `Drag players to set boards 1–${MAX_BOARD_SLOTS}. Board 1 is the strongest.`
-      : showUnassigned
-        ? `Drag players between the lineup and bench. Up to ${MAX_BOARD_SLOTS} boards.`
-        : "Drag to reorder the list."
-    : "Board 1 is the strongest player. Lower numbers play higher boards."
+  const lineupTitle = clubLadder
+    ? "Varsity"
+    : showUnassigned
+      ? "Starting lineup"
+      : eventMode
+        ? "Attendees"
+        : "Starting lineup"
+  const lineupDescription = clubLadder
+    ? editable
+      ? "Drag to rank the top 8. Board 1 is the strongest. Hold a player near the top of the screen to scroll up."
+      : "Top 8 players. Board 1 is the strongest."
+    : editable
+      ? eventMode && showUnassigned
+        ? `Drag players to set boards 1–${MAX_BOARD_SLOTS}. Board 1 is the strongest.`
+        : showUnassigned
+          ? `Drag players between the lineup and bench. Up to ${MAX_BOARD_SLOTS} boards.`
+          : "Drag to reorder the list."
+      : "Board 1 is the strongest player. Lower numbers play higher boards."
 
-  const benchTitle = "On the bench"
-  const benchDescription = editable
-    ? eventMode
-      ? "Members not on a board for this event. Drag here to remove from the lineup."
-      : "Drag members here to remove them from the lineup."
-    : eventMode
-      ? "Not assigned to a board for this event."
-      : "These members are not assigned to a board right now."
+  const benchTitle = clubLadder ? "Under varsity" : "On the bench"
+  const benchDescription = clubLadder
+    ? editable
+      ? "Drag to rank everyone below varsity. This order is saved."
+      : "Ranked below the top 8, strongest first."
+    : editable
+      ? eventMode
+        ? "Members not on a board for this event. Drag here to remove from the lineup."
+        : "Drag members here to remove them from the lineup."
+      : eventMode
+        ? "Not assigned to a board for this event."
+        : "These members are not assigned to a board right now."
 
   return (
     <div className="space-y-8">
@@ -230,8 +263,8 @@ function BoardOrderSections({
           title={lineupTitle}
           description={lineupDescription}
           count={
-            showUnassigned
-              ? `${displayState.lineup.length} / ${MAX_BOARD_SLOTS}`
+            clubLadder || showUnassigned
+              ? `${displayState.lineup.length} / ${slotLimit}`
               : `${displayState.lineup.length}`
           }
         />
@@ -293,7 +326,9 @@ function BoardOrderSections({
             emptyMessage={
               eventMode
                 ? "No one on the bench."
-                : "Everyone is on a board."
+                : clubLadder
+                  ? "Everyone is on varsity."
+                  : "Everyone is on a board."
             }
           >
             {displayState.unassigned.length > 0 ? (
@@ -303,22 +338,30 @@ function BoardOrderSections({
                   strategy={verticalListSortingStrategy}
                 >
                   <ul className="space-y-2">
-                    {displayState.unassigned.map((player) => (
+                    {displayState.unassigned.map((player, index) => (
                       <SortablePlayer
                         key={player.id}
                         player={player}
-                        boardNumber={null}
+                        boardNumber={
+                          clubLadder
+                            ? displayState.lineup.length + index + 1
+                            : null
+                        }
                       />
                     ))}
                   </ul>
                 </SortableContext>
               ) : (
                 <ul className="space-y-2">
-                  {displayState.unassigned.map((player) => (
+                  {displayState.unassigned.map((player, index) => (
                     <StaticPlayerRow
                       key={player.id}
                       player={player}
-                      boardNumber={null}
+                      boardNumber={
+                        clubLadder
+                          ? displayState.lineup.length + index + 1
+                          : null
+                      }
                     />
                   ))}
                 </ul>
@@ -337,7 +380,11 @@ type BoardOrderDnDProps = {
   eventId?: string
 }
 
-export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps) {
+export function BoardOrderDnD({
+  players,
+  editable,
+  eventId,
+}: BoardOrderDnDProps) {
   const router = useRouter()
   const eventMode = Boolean(eventId)
   const eventPlayers = players as EventBoardPlayer[]
@@ -378,24 +425,84 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
     setState(showUnassigned ? built : collapseUnassigned(built))
   }, [buildState, clubDisplay, players, showUnassigned])
 
+  const dragPointerY = useRef<number | null>(null)
+  const dragScrolling = useRef(false)
+  const autoScrollFrame = useRef<number | null>(null)
+  const dragScrollGuard = useRef({ y: 0, startedAt: 0, moved: false })
+
   useEffect(() => {
-    if (!activeId) return
-
-    const { body, documentElement } = document
-    const prevBodyOverflow = body.style.overflow
-    const prevHtmlOverflow = documentElement.style.overflow
-    const prevBodyTouchAction = body.style.touchAction
-
-    body.style.overflow = "hidden"
-    documentElement.style.overflow = "hidden"
-    body.style.touchAction = "none"
-
     return () => {
-      body.style.overflow = prevBodyOverflow
-      documentElement.style.overflow = prevHtmlOverflow
-      body.style.touchAction = prevBodyTouchAction
+      dragScrolling.current = false
+      if (autoScrollFrame.current != null) {
+        cancelAnimationFrame(autoScrollFrame.current)
+      }
     }
-  }, [activeId])
+  }, [])
+
+  function stopDragAutoScroll() {
+    dragScrolling.current = false
+    dragPointerY.current = null
+    if (autoScrollFrame.current != null) {
+      cancelAnimationFrame(autoScrollFrame.current)
+      autoScrollFrame.current = null
+    }
+  }
+
+  function runDragAutoScroll() {
+    if (!dragScrolling.current) {
+      autoScrollFrame.current = null
+      return
+    }
+
+    const pointerY = dragPointerY.current
+    const guard = dragScrollGuard.current
+    if (
+      !guard.moved &&
+      performance.now() - guard.startedAt < 250 &&
+      guard.y > 80 &&
+      window.scrollY + 40 < guard.y
+    ) {
+      window.scrollTo(0, guard.y)
+    }
+
+    if (pointerY != null) {
+      const edge = 120
+      const maxStep = 24
+      if (pointerY < edge) {
+        const intensity = (edge - pointerY) / edge
+        window.scrollBy(
+          0,
+          -Math.max(2, Math.round(maxStep * intensity * intensity))
+        )
+        guard.moved = true
+      } else {
+        const gap = window.innerHeight - pointerY
+        if (gap < edge) {
+          const intensity = (edge - gap) / edge
+          window.scrollBy(
+            0,
+            Math.max(2, Math.round(maxStep * intensity * intensity))
+          )
+          guard.moved = true
+        }
+      }
+    }
+
+    autoScrollFrame.current = requestAnimationFrame(runDragAutoScroll)
+  }
+
+  function startDragAutoScroll(clientY: number | null) {
+    dragScrolling.current = true
+    dragScrollGuard.current = {
+      y: window.scrollY,
+      startedAt: performance.now(),
+      moved: false,
+    }
+    dragPointerY.current = clientY
+    if (autoScrollFrame.current == null) {
+      autoScrollFrame.current = requestAnimationFrame(runDragAutoScroll)
+    }
+  }
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -408,32 +515,39 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
   )
 
   const activePlayer = activeId ? findPlayer(state, activeId) : null
-  const displayLineup = showUnassigned
-    ? state.lineup
-    : collapseUnassigned(state).lineup
 
   async function arrangeByClubOrder() {
     const arranged = buildEventBoardOrderFromClubOrder(eventPlayers)
     const next = showUnassigned ? arranged : collapseUnassigned(arranged)
     setState(next)
-    await persist(arranged.lineup)
+    await persist(next)
   }
 
-  async function persist(lineup: Profile[]) {
-    const lineupIds = lineup
+  async function persist(next: BoardOrderState) {
+    const source = eventMode
+      ? next.lineup
+      : [...next.lineup, ...next.unassigned]
+    const orderedIds = source
       .filter((p) => !isDeletedMemberPlayer(p) && !p.id.startsWith("deleted:"))
       .map((p) => p.id)
     const save = eventId
-      ? () => saveEventBoardOrderAction(eventId, lineupIds)
-      : () => saveBoardOrderAction(lineupIds)
+      ? () => saveEventBoardOrderAction(eventId, orderedIds)
+      : () => saveBoardOrderAction(orderedIds)
 
     setIsSaving(true)
     try {
       const result = await save()
       if (result.error) {
         toast.error(result.error)
-        const built = buildState(players)
-        setState(showUnassigned ? built : collapseUnassigned(built))
+        if (clubDisplay) {
+          setState({
+            lineup: clubDisplay.lineup,
+            unassigned: clubDisplay.unassigned,
+          })
+        } else {
+          const built = buildState(players)
+          setState(showUnassigned ? built : collapseUnassigned(built))
+        }
       } else if (result.success) {
         toast.success(result.success)
         router.refresh()
@@ -455,7 +569,10 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
     const activeContainer = findContainer(prev, activeId)
     if (!activeContainer || activeContainer === overContainer) return null
 
-    if (overContainer === LINEUP_CONTAINER && prev.lineup.length >= MAX_BOARD_SLOTS) {
+    if (
+      overContainer === LINEUP_CONTAINER &&
+      prev.lineup.length >= MAX_BOARD_SLOTS
+    ) {
       toast.error(`Maximum ${MAX_BOARD_SLOTS} boards.`)
       return null
     }
@@ -506,7 +623,10 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
       return prev
     }
 
-    if (activeContainer === overContainer && activeContainer === LINEUP_CONTAINER) {
+    if (
+      activeContainer === overContainer &&
+      activeContainer === LINEUP_CONTAINER
+    ) {
       const oldIndex = working.lineup.findIndex((p) => p.id === activeId)
       const newIndex = working.lineup.findIndex((p) => p.id === overId)
       if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
@@ -519,7 +639,12 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
     }
 
     if (activeContainer !== overContainer) {
-      const moved = moveBetweenContainers(working, activeId, overId, overContainer)
+      const moved = moveBetweenContainers(
+        working,
+        activeId,
+        overId,
+        overContainer
+      )
       if (moved) return moved
     }
 
@@ -530,9 +655,11 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
     if (isSaving) return
 
     const prev = stateRef.current
-    const next = applyBoardOrderMove(prev, move, { showUnassigned })
+    const next = eventMode
+      ? applyBoardOrderMove(prev, move, { showUnassigned })
+      : applyClubLadderMove(prev, move)
     if (!next) {
-      if (move.type === "to-lineup") {
+      if (eventMode && move.type === "to-lineup") {
         toast.error(`Maximum ${MAX_BOARD_SLOTS} boards.`)
       }
       return
@@ -541,38 +668,46 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
     setState(next)
 
     if (boardOrderChanged(prev, next)) {
-      void persist(lineupToSave(next, showUnassigned))
+      void persist(next)
     }
   }
 
   function handleDragStart(event: DragStartEvent) {
     if (isSaving) return
     setActiveId(event.active.id)
+    startDragAutoScroll(clientYFromActivator(event.activatorEvent))
+  }
+
+  function handleDragMove(event: DragMoveEvent) {
+    dragPointerY.current = clientYFromActivator(
+      event.activatorEvent,
+      event.delta.y
+    )
   }
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
     setActiveId(null)
+    stopDragAutoScroll()
     if (isSaving || !over) return
 
     const prev = stateRef.current
-    const next = applyDragEnd(prev, active.id, over.id)
+    const next = eventMode
+      ? applyDragEnd(prev, active.id, over.id)
+      : applyClubLadderDrag(prev, String(active.id), String(over.id))
 
     if (next === prev) return
 
     setState(next)
 
-    const changed =
-      next.lineup.length !== prev.lineup.length ||
-      next.lineup.some((p, i) => p.id !== prev.lineup[i]?.id) ||
-      next.unassigned.some((p, i) => p.id !== prev.unassigned[i]?.id)
-
-    if (changed) {
-      const lineupToSave = showUnassigned
-        ? next.lineup
-        : collapseUnassigned(next).lineup
-      persist(lineupToSave)
+    if (boardOrderChanged(prev, next)) {
+      void persist(next)
     }
+  }
+
+  function handleDragCancel() {
+    setActiveId(null)
+    stopDragAutoScroll()
   }
 
   if (players.length === 0) {
@@ -590,6 +725,7 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
         editable={false}
         showUnassigned={showUnassigned}
         eventMode={eventMode}
+        clubLadder={!eventMode}
       />
     )
   }
@@ -638,6 +774,7 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
               state={state}
               showUnassigned={showUnassigned}
               eventMode={eventMode}
+              clubLadder={!eventMode}
               disabled={isSaving}
               onMove={handleMobileMove}
             />
@@ -648,26 +785,36 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
               collisionDetection={closestCorners}
               autoScroll={false}
               onDragStart={handleDragStart}
+              onDragMove={handleDragMove}
               onDragEnd={handleDragEnd}
+              onDragCancel={handleDragCancel}
             >
               <BoardOrderSections
                 state={state}
                 editable
                 showUnassigned={showUnassigned}
                 eventMode={eventMode}
+                clubLadder={!eventMode}
               />
               <DragOverlay dropAnimation={null} className="touch-none">
                 {activePlayer ? (
                   <BoardPlayerRow
                     player={activePlayer}
-                    boardNumber={
-                      displayLineup.findIndex((p) => p.id === activePlayer.id) >=
-                      0
-                        ? displayLineup.findIndex(
-                            (p) => p.id === activePlayer.id
-                          ) + 1
-                        : null
-                    }
+                    boardNumber={(() => {
+                      const lineupIndex = state.lineup.findIndex(
+                        (player) => player.id === activePlayer.id
+                      )
+                      if (lineupIndex >= 0) return lineupIndex + 1
+                      if (!eventMode) {
+                        const underIndex = state.unassigned.findIndex(
+                          (player) => player.id === activePlayer.id
+                        )
+                        if (underIndex >= 0) {
+                          return state.lineup.length + underIndex + 1
+                        }
+                      }
+                      return null
+                    })()}
                     draggable
                     isDragOverlay
                   />

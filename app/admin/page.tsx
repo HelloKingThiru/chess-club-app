@@ -192,7 +192,7 @@ export default async function AdminPage() {
 
       <PageSection
         title="Board order"
-        description="League ladder — board 1 is the strongest player."
+        description="Varsity is the top 8. Everyone under varsity keeps a saved order. Board 1 is the strongest player."
         icon={ClipboardList}
         action={
           <Button variant="outline" size="sm" asChild>

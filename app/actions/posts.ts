@@ -563,14 +563,10 @@ export async function saveEventBoardOrderAction(
 }
 
 export async function saveBoardOrderAction(
-  lineupIds: string[]
+  orderedIds: string[]
 ): Promise<ActionState> {
   const auth = await assertAdminTools()
   if (!auth.ok) return { error: auth.error }
-
-  if (lineupIds.length > 10) {
-    return { error: "Maximum 10 boards." }
-  }
 
   const supabase = await createClient()
   const { data: profiles, error: fetchError } = await supabase
@@ -580,7 +576,7 @@ export async function saveBoardOrderAction(
   if (fetchError) return { error: fetchError.message }
 
   for (const profile of profiles ?? []) {
-    const index = lineupIds.indexOf(profile.id)
+    const index = orderedIds.indexOf(profile.id)
     const board_number = index === -1 ? null : index + 1
     const { error } = await supabase
       .from("profiles")

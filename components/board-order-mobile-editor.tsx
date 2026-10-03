@@ -11,15 +11,13 @@ import {
 
 import {
   MAX_BOARD_SLOTS,
+  VARSITY_BOARD_SLOTS,
   collapseUnassigned,
   lineupBoardNumbers,
   type BoardOrderState,
 } from "@/lib/board-order"
 import type { BoardOrderMove } from "@/lib/board-order-moves"
-import {
-  BoardPlayerRow,
-  BoardSectionHeader,
-} from "@/components/board-order-ui"
+import { BoardPlayerRow, BoardSectionHeader } from "@/components/board-order-ui"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -27,6 +25,7 @@ type BoardOrderMobileEditorProps = {
   state: BoardOrderState
   showUnassigned: boolean
   eventMode?: boolean
+  clubLadder?: boolean
   disabled?: boolean
   onMove: (move: BoardOrderMove) => void
 }
@@ -76,25 +75,34 @@ export function BoardOrderMobileEditor({
   state,
   showUnassigned,
   eventMode = false,
+  clubLadder = false,
   disabled = false,
   onMove,
 }: BoardOrderMobileEditorProps) {
   const displayState = showUnassigned ? state : collapseUnassigned(state)
   const lineupItems = lineupBoardNumbers(displayState.lineup)
-  const lineupFull = displayState.lineup.length >= MAX_BOARD_SLOTS
+  const slotLimit = clubLadder ? VARSITY_BOARD_SLOTS : MAX_BOARD_SLOTS
+  const lineupFull = !clubLadder && displayState.lineup.length >= slotLimit
 
-  const lineupTitle = showUnassigned
-    ? "Starting lineup"
+  const lineupTitle = clubLadder
+    ? "Varsity"
+    : showUnassigned
+      ? "Starting lineup"
+      : eventMode
+        ? "Attendees"
+        : "Starting lineup"
+  const lineupDescription = clubLadder
+    ? `Tap the arrows to rank the top ${VARSITY_BOARD_SLOTS}.`
+    : showUnassigned
+      ? `Tap the arrows to reorder boards 1–${MAX_BOARD_SLOTS}.`
+      : "Tap the arrows to change board order."
+
+  const benchTitle = clubLadder ? "Under varsity" : "On the bench"
+  const benchDescription = clubLadder
+    ? "Tap the arrows to rank everyone below varsity. This order is saved."
     : eventMode
-      ? "Attendees"
-      : "Starting lineup"
-  const lineupDescription = showUnassigned
-    ? `Tap the arrows to reorder boards 1–${MAX_BOARD_SLOTS}.`
-    : "Tap the arrows to change board order."
-
-  const benchDescription = eventMode
-    ? "Move players between the lineup and bench with the buttons."
-    : "Remove players from the lineup or add them back from the bench."
+      ? "Move players between the lineup and bench with the buttons."
+      : "Remove players from the lineup or add them back from the bench."
 
   return (
     <div className="space-y-8">
@@ -103,8 +111,8 @@ export function BoardOrderMobileEditor({
           title={lineupTitle}
           description={lineupDescription}
           count={
-            showUnassigned
-              ? `${displayState.lineup.length} / ${MAX_BOARD_SLOTS}`
+            clubLadder || showUnassigned
+              ? `${displayState.lineup.length} / ${slotLimit}`
               : `${displayState.lineup.length}`
           }
         />
@@ -148,7 +156,9 @@ export function BoardOrderMobileEditor({
                         }
                       >
                         <UserMinus className="size-4" />
-                        <span className="sr-only">Move to bench</span>
+                        <span className="sr-only">
+                          {clubLadder ? "Move under varsity" : "Move to bench"}
+                        </span>
                       </Button>
                     ) : null}
                   </div>
@@ -166,7 +176,7 @@ export function BoardOrderMobileEditor({
       {showUnassigned ? (
         <section className="space-y-3">
           <BoardSectionHeader
-            title="On the bench"
+            title={benchTitle}
             description={benchDescription}
             count={String(displayState.unassigned.length)}
           />
@@ -179,7 +189,9 @@ export function BoardOrderMobileEditor({
                       <MoveButtons
                         disabled={disabled}
                         upDisabled={index === 0}
-                        downDisabled={index === displayState.unassigned.length - 1}
+                        downDisabled={
+                          index === displayState.unassigned.length - 1
+                        }
                         onUp={() =>
                           onMove({ type: "bench-move", index, delta: -1 })
                         }
@@ -188,7 +200,15 @@ export function BoardOrderMobileEditor({
                         }
                       />
                       <div className="min-w-0 flex-1">
-                        <BoardPlayerRow player={player} boardNumber={null} showEmail />
+                        <BoardPlayerRow
+                          player={player}
+                          boardNumber={
+                            clubLadder
+                              ? displayState.lineup.length + index + 1
+                              : null
+                          }
+                          showEmail
+                        />
                       </div>
                       <Button
                         type="button"
@@ -201,7 +221,9 @@ export function BoardOrderMobileEditor({
                         }
                       >
                         <UserPlus className="size-4" />
-                        <span className="sr-only">Add to lineup</span>
+                        <span className="sr-only">
+                          {clubLadder ? "Move to varsity" : "Add to lineup"}
+                        </span>
                       </Button>
                     </div>
                   </li>
@@ -209,7 +231,9 @@ export function BoardOrderMobileEditor({
               </ul>
             ) : (
               <p className="px-2 py-6 text-center text-sm text-muted-foreground">
-                Everyone is on a board.
+                {clubLadder
+                  ? "Everyone is on varsity."
+                  : "Everyone is on a board."}
               </p>
             )}
           </div>

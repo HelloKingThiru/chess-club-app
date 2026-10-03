@@ -2,7 +2,7 @@ import type { HTMLAttributes } from "react"
 import Link from "next/link"
 import { GripVertical, Trophy } from "lucide-react"
 
-import { MAX_BOARD_SLOTS } from "@/lib/board-order"
+import { VARSITY_BOARD_SLOTS } from "@/lib/board-order"
 import { formatGradeLevel } from "@/lib/grade-level"
 import { roleLabel } from "@/lib/roles"
 import type { Profile } from "@/lib/types/auth"
@@ -104,7 +104,7 @@ export function BoardRankBadge({
       ) : null}
       <span
         className={cn(
-          "font-bold leading-none tracking-tight",
+          "leading-none font-bold tracking-tight",
           size === "sm" ? "text-lg" : "text-xl sm:text-2xl"
         )}
       >
@@ -112,7 +112,7 @@ export function BoardRankBadge({
       </span>
       <span
         className={cn(
-          "mt-0.5 font-medium uppercase tracking-wide opacity-90",
+          "mt-0.5 font-medium tracking-wide uppercase opacity-90",
           size === "sm" ? "text-[8px]" : "text-[9px] sm:text-[10px]"
         )}
       >
@@ -136,14 +136,14 @@ export function BoardOrderStats({
   const stats = showUnassigned
     ? [
         {
-          label: "Boards filled",
-          value: `${filled}/${MAX_BOARD_SLOTS}`,
-          hint: "Starting lineup",
+          label: "Varsity",
+          value: `${filled}/${VARSITY_BOARD_SLOTS}`,
+          hint: "Top 8",
         },
         {
-          label: "On the bench",
+          label: "Under varsity",
           value: String(unassigned),
-          hint: "Not assigned yet",
+          hint: "Saved order",
         },
         {
           label: "Club members",
@@ -153,9 +153,9 @@ export function BoardOrderStats({
       ]
     : [
         {
-          label: "On the lineup",
+          label: "Varsity",
           value: String(total),
-          hint: `Boards 1–${Math.min(total, MAX_BOARD_SLOTS)}`,
+          hint: `Boards 1–${Math.min(total, VARSITY_BOARD_SLOTS)}`,
         },
       ]
 
@@ -163,7 +163,7 @@ export function BoardOrderStats({
     <div
       className={cn(
         "grid gap-3",
-        showUnassigned ? "sm:grid-cols-3" : "sm:grid-cols-1 sm:max-w-xs"
+        showUnassigned ? "sm:grid-cols-3" : "sm:max-w-xs sm:grid-cols-1"
       )}
     >
       {stats.map((stat) => (
@@ -237,9 +237,7 @@ export function BoardPlayerRow({
     player.grade_level != null ? formatGradeLevel(player.grade_level) : null
   const role = roleLabel(player.role)
   const profileHref =
-    href && !deleted && !player.id.startsWith("deleted:")
-      ? href
-      : undefined
+    href && !deleted && !player.id.startsWith("deleted:") ? href : undefined
   const { className: dragHandleClassName, ...dragHandleRest } =
     dragHandleProps ?? {}
 
