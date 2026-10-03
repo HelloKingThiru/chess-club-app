@@ -1,6 +1,10 @@
 import type { Profile } from "@/lib/types/auth"
 
+/** Event lineups still use a fixed board count. */
 export const MAX_BOARD_SLOTS = 10
+
+/** Club ladder: the top boards are varsity. Everyone else is ranked under them. */
+export const VARSITY_BOARD_SLOTS = 8
 
 export type BoardOrderState = {
   lineup: Profile[]
@@ -25,16 +29,30 @@ export function shouldShowUnassigned(players: Profile[]) {
   return players.length > MAX_BOARD_SLOTS
 }
 
-/** Read-only views: show everyone on boards when the club has ≤ MAX_BOARD_SLOTS members. */
+/**
+ * Club ladder. The first VARSITY_BOARD_SLOTS players are varsity.
+ * Everyone after that stays in saved order under varsity.
+ */
+export function buildClubLadderState(players: Profile[]): BoardOrderState {
+  const ranked = [...players].sort(compareByBoardThenName)
+  if (ranked.length <= VARSITY_BOARD_SLOTS) {
+    return { lineup: ranked, unassigned: [] }
+  }
+  return {
+    lineup: ranked.slice(0, VARSITY_BOARD_SLOTS),
+    unassigned: ranked.slice(VARSITY_BOARD_SLOTS),
+  }
+}
+
+/** Club page: varsity is the top 8. A longer roster keeps an ordered list under varsity. */
 export function displayBoardOrderState(players: Profile[]): BoardOrderState & {
   showUnassigned: boolean
 } {
-  const built = buildBoardOrderState(players)
-  const showUnassigned = shouldShowUnassigned(players)
-  if (showUnassigned) {
-    return { ...built, showUnassigned: true }
+  const built = buildClubLadderState(players)
+  return {
+    ...built,
+    showUnassigned: players.length > VARSITY_BOARD_SLOTS,
   }
-  return { ...collapseUnassigned(built), showUnassigned: false }
 }
 
 export function collapseUnassigned(state: BoardOrderState): BoardOrderState {

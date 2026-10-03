@@ -1,13 +1,18 @@
-import { ClipboardList } from "lucide-react"
+import Link from "next/link"
+import { ClipboardList, Swords } from "lucide-react"
 
-import { MAX_BOARD_SLOTS } from "@/lib/board-order"
+import { VARSITY_BOARD_SLOTS } from "@/lib/board-order"
 import { canUseAdminTools } from "@/lib/admin-mode"
 import { getProfile } from "@/lib/auth"
 import { PUBLIC_PROFILE_COLUMNS, toProfile } from "@/lib/guest-access"
 import { createClient } from "@/lib/supabase/server"
-import { BoardOrderSummary, BoardOrderTable } from "@/components/board-order-table"
+import {
+  BoardOrderSummary,
+  BoardOrderTable,
+} from "@/components/board-order-table"
 import { PageHeader, PageShell } from "@/components/page-shell"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 
 export default async function BoardOrderPage() {
   const profile = await getProfile()
@@ -27,17 +32,27 @@ export default async function BoardOrderPage() {
     <PageShell className="space-y-6">
       <PageHeader
         title="Board order"
-        description={`The club league ladder — up to ${MAX_BOARD_SLOTS} boards. Board 1 is the strongest player.`}
+        description={`Varsity is the top ${VARSITY_BOARD_SLOTS}. Everyone under varsity stays in the order you set. Board 1 is the strongest player.`}
         icon={ClipboardList}
+        action={
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/club-matches">
+              <Swords className="size-4" />
+              Club matches
+            </Link>
+          </Button>
+        }
       />
 
       {profile?.role === "admin" ? (
-        <Alert className={showAdmin ? "border-primary/30 bg-primary/5" : undefined}>
+        <Alert
+          className={showAdmin ? "border-primary/30 bg-primary/5" : undefined}
+        >
           <AlertTitle>{showAdmin ? "Editing lineup" : "View only"}</AlertTitle>
           <AlertDescription>
             {showAdmin
-              ? "Drag players to change board numbers. Board 1 is strongest. Changes save automatically."
-              : "Turn on admin mode in the header to drag and reorder the lineup."}
+              ? "Drag to rank the club. Varsity is the top 8. The order under varsity is saved too. Hold a player near the top of the screen and the page scrolls up."
+              : "Turn on admin mode in the header to drag and reorder the ladder."}
           </AlertDescription>
         </Alert>
       ) : (

@@ -6,6 +6,7 @@ import {
   Home,
   MessageSquare,
   Shield,
+  Swords,
   User,
 } from "lucide-react"
 
@@ -54,6 +55,7 @@ export function SiteNav({
           )
         )}
         <NavLink href="/board-order" icon={ClipboardList} label="Board order" />
+        <NavLink href="/club-matches" icon={Swords} label="Matches" />
       </nav>
 
       {isAdmin ? (

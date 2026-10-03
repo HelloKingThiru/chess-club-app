@@ -9,6 +9,7 @@ import {
   Menu,
   MessageSquare,
   Shield,
+  Swords,
   User,
   type LucideIcon,
 } from "lucide-react"
@@ -66,6 +67,7 @@ export function MobileNavSheet({
         ]
       : []),
     { href: "/board-order", icon: ClipboardList, label: "Board order" },
+    { href: "/club-matches", icon: Swords, label: "Matches" },
   ]
 
   return (
@@ -120,7 +122,7 @@ export function MobileNavSheet({
 
         {isAdmin ? (
           <div className="mt-auto space-y-3 border-t bg-muted/30 px-4 py-4">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               Admin
             </p>
             <AdminModeToggle enabled={adminMode} compact className="w-full" />
@@ -141,7 +143,7 @@ export function MobileNavSheet({
         ) : null}
 
         <div className="border-t px-4 py-4">
-          <p className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
             Appearance
           </p>
           <ThemePicker />
