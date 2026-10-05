@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 
 import { parseAnnouncementPin } from "@/lib/announcement-pin"
 import { assertAdminTools } from "@/lib/admin-mode"
+import { MAX_BOARD_SLOTS, boardNumbersForOrder } from "@/lib/board-order"
 import { memberDisplayNameForProfile } from "@/lib/event-attendees"
 import { requireProfile } from "@/lib/auth"
 import { shouldBulkArchive } from "@/lib/post-visibility"
@@ -523,13 +524,14 @@ export async function leaveEventAction(eventId: string): Promise<ActionState> {
 
 export async function saveEventBoardOrderAction(
   eventId: string,
-  lineupIds: string[]
+  lineupIds: string[],
+  benchIds: string[] = []
 ): Promise<ActionState> {
   const auth = await assertAdminTools()
   if (!auth.ok) return { error: auth.error }
 
-  if (lineupIds.length > 10) {
-    return { error: "Maximum 10 boards." }
+  if (lineupIds.length > MAX_BOARD_SLOTS) {
+    return { error: `Maximum ${MAX_BOARD_SLOTS} boards.` }
   }
 
   const supabase = await createClient()
@@ -541,18 +543,19 @@ export async function saveEventBoardOrderAction(
 
   if (deleteError) return { error: deleteError.message }
 
-  if (lineupIds.length > 0) {
+  const boardById = boardNumbersForOrder(lineupIds, benchIds)
+  const rows = [...boardById.entries()]
+    .filter(([userId]) => !userId.startsWith("deleted:"))
+    .map(([userId, board_number]) => ({
+      event_id: eventId,
+      user_id: userId,
+      board_number,
+    }))
+
+  if (rows.length > 0) {
     const { error: insertError } = await supabase
       .from("event_board_order")
-      .insert(
-        lineupIds
-          .filter((userId) => !userId.startsWith("deleted:"))
-          .map((userId, index) => ({
-            event_id: eventId,
-            user_id: userId,
-            board_number: index + 1,
-          }))
-      )
+      .insert(rows)
 
     if (insertError) return { error: insertError.message }
   }
@@ -563,13 +566,14 @@ export async function saveEventBoardOrderAction(
 }
 
 export async function saveBoardOrderAction(
-  lineupIds: string[]
+  lineupIds: string[],
+  benchIds: string[] = []
 ): Promise<ActionState> {
   const auth = await assertAdminTools()
   if (!auth.ok) return { error: auth.error }
 
-  if (lineupIds.length > 10) {
-    return { error: "Maximum 10 boards." }
+  if (lineupIds.length > MAX_BOARD_SLOTS) {
+    return { error: `Maximum ${MAX_BOARD_SLOTS} boards.` }
   }
 
   const supabase = await createClient()
@@ -579,9 +583,10 @@ export async function saveBoardOrderAction(
 
   if (fetchError) return { error: fetchError.message }
 
+  const boardById = boardNumbersForOrder(lineupIds, benchIds)
+
   for (const profile of profiles ?? []) {
-    const index = lineupIds.indexOf(profile.id)
-    const board_number = index === -1 ? null : index + 1
+    const board_number = boardById.get(profile.id) ?? null
     const { error } = await supabase
       .from("profiles")
       .update({ board_number })

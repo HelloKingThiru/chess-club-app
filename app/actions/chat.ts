@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
+import { isLineupBoard } from "@/lib/board-order"
 import { requireProfile } from "@/lib/auth"
 import { memberSubtitle, isChatThreadUnread } from "@/lib/chat"
 import { isAdmin } from "@/lib/roles"
@@ -292,7 +293,9 @@ export async function getAdminChatDirectory(): Promise<ChatDirectoryEntry[]> {
           gradeLevel: member.grade_level,
           boardNumber: member.board_number,
         }),
-        contactBadge: member.board_number ? `Board ${member.board_number}` : null,
+        contactBadge: isLineupBoard(member.board_number)
+          ? `Board ${member.board_number}`
+          : null,
         threadId: null,
         lastMessageBody: null,
         lastMessageAt: null,
@@ -318,7 +321,9 @@ export async function getAdminChatDirectory(): Promise<ChatDirectoryEntry[]> {
         gradeLevel: member.grade_level,
         boardNumber: member.board_number,
       }),
-      contactBadge: member.board_number ? `Board ${member.board_number}` : null,
+      contactBadge: isLineupBoard(member.board_number)
+        ? `Board ${member.board_number}`
+        : null,
       threadId: thread?.id ?? null,
       lastMessageBody: thread?.last_message_body ?? null,
       lastMessageAt: thread?.last_message_at ?? null,

@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 
 import { deleteProfileAction, updateProfileAction } from "@/app/actions/profile"
+import { isLineupBoard } from "@/lib/board-order"
 import type { ActionState, Profile } from "@/lib/types/auth"
 import { formatGradeLevel, GRADE_LEVELS, gradeLevelOptionLabel } from "@/lib/grade-level"
 import { roleLabel } from "@/lib/roles"
@@ -166,7 +167,7 @@ export function ProfileInfoCard({
                 <Shield className="size-3" />
                 {roleLabel(profile.role)}
               </Badge>
-              {profile.board_number ? (
+              {isLineupBoard(profile.board_number) ? (
                 <Badge variant="outline">Board {profile.board_number}</Badge>
               ) : null}
             </div>

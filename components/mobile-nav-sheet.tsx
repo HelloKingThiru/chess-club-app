@@ -8,6 +8,7 @@ import {
   Home,
   Menu,
   MessageSquare,
+  ScrollText,
   Shield,
   User,
   type LucideIcon,
@@ -66,6 +67,9 @@ export function MobileNavSheet({
         ]
       : []),
     { href: "/board-order", icon: ClipboardList, label: "Board order" },
+    ...(profileId
+      ? [{ href: "/logs", icon: ScrollText, label: "Logs" }]
+      : []),
   ]
 
   return (

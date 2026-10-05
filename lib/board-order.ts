@@ -1,6 +1,25 @@
 import type { Profile } from "@/lib/types/auth"
 
-export const MAX_BOARD_SLOTS = 10
+export const MAX_BOARD_SLOTS = 8
+
+export function isLineupBoard(board: number | null | undefined): board is number {
+  return board != null && board >= 1 && board <= MAX_BOARD_SLOTS
+}
+
+/** Lineup uses 1–8. JV / bench order continues at 9 so it survives a reload. */
+export function boardNumbersForOrder(lineupIds: string[], benchIds: string[]) {
+  const boardById = new Map<string, number>()
+
+  lineupIds.forEach((id, index) => {
+    if (index < MAX_BOARD_SLOTS) boardById.set(id, index + 1)
+  })
+
+  benchIds.forEach((id, index) => {
+    if (!boardById.has(id)) boardById.set(id, MAX_BOARD_SLOTS + 1 + index)
+  })
+
+  return boardById
+}
 
 export type BoardOrderState = {
   lineup: Profile[]

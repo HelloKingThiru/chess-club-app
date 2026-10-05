@@ -88,7 +88,7 @@ export function BoardOrderList({ entries }: { entries: BoardOrderEntry[] }) {
       {showUnassigned && unassigned.length > 0 ? (
         <div className="space-y-2">
           <BoardSectionHeader
-            title="On the bench"
+            title="JV / bench"
             count={String(unassigned.length)}
           />
           <ul className="space-y-2">

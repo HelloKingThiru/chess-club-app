@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { connection } from "next/server"
 import { Calendar, GraduationCap, Mail, MapPin, Phone, Shield, User } from "lucide-react"
 
+import { isLineupBoard } from "@/lib/board-order"
 import { getProfile } from "@/lib/auth"
 import { getAdminMode } from "@/lib/admin-mode"
 import {
@@ -90,7 +91,7 @@ function ProfileViewCard({
                 <Shield className="size-3" />
                 {roleLabel(profile.role)}
               </Badge>
-              {profile.board_number ? (
+              {isLineupBoard(profile.board_number) ? (
                 <Badge variant="outline">Board {profile.board_number}</Badge>
               ) : null}
             </div>

@@ -81,7 +81,6 @@ export function BoardOrderMobileEditor({
 }: BoardOrderMobileEditorProps) {
   const displayState = showUnassigned ? state : collapseUnassigned(state)
   const lineupItems = lineupBoardNumbers(displayState.lineup)
-  const lineupFull = displayState.lineup.length >= MAX_BOARD_SLOTS
 
   const lineupTitle = showUnassigned
     ? "Starting lineup"
@@ -94,7 +93,7 @@ export function BoardOrderMobileEditor({
 
   const benchDescription = eventMode
     ? "Move players between the lineup and bench with the buttons."
-    : "Remove players from the lineup or add them back from the bench."
+    : "Move players between the lineup and JV / bench. That order is saved."
 
   return (
     <div className="space-y-8">
@@ -166,7 +165,7 @@ export function BoardOrderMobileEditor({
       {showUnassigned ? (
         <section className="space-y-3">
           <BoardSectionHeader
-            title="On the bench"
+            title="JV / bench"
             description={benchDescription}
             count={String(displayState.unassigned.length)}
           />
@@ -195,7 +194,7 @@ export function BoardOrderMobileEditor({
                         variant="outline"
                         size="sm"
                         className="h-auto shrink-0 touch-manipulation px-2 py-2"
-                        disabled={disabled || lineupFull}
+                        disabled={disabled}
                         onClick={() =>
                           onMove({ type: "to-lineup", playerId: player.id })
                         }

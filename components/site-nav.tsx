@@ -5,6 +5,7 @@ import {
   ClipboardList,
   Home,
   MessageSquare,
+  ScrollText,
   Shield,
   User,
 } from "lucide-react"
@@ -54,6 +55,9 @@ export function SiteNav({
           )
         )}
         <NavLink href="/board-order" icon={ClipboardList} label="Board order" />
+        {profileId ? (
+          <NavLink href="/logs" icon={ScrollText} label="Logs" />
+        ) : null}
       </nav>
 
       {isAdmin ? (

@@ -1,5 +1,6 @@
 import { formatInTimeZone } from "date-fns-tz"
 
+import { isLineupBoard } from "@/lib/board-order"
 import { formatGradeLevel } from "@/lib/grade-level"
 import { CLUB_TIMEZONE } from "@/lib/club-datetime"
 
@@ -79,7 +80,7 @@ export function memberSubtitle({
   const parts: string[] = []
   const grade = formatGradeLevel(gradeLevel)
   if (grade !== "Not set") parts.push(grade)
-  if (boardNumber) parts.push(`Board ${boardNumber}`)
+  if (isLineupBoard(boardNumber)) parts.push(`Board ${boardNumber}`)
   return parts.join(" · ") || "Club member"
 }
 

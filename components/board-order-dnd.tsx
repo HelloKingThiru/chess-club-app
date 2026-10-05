@@ -55,7 +55,7 @@ import {
 import {
   applyBoardOrderMove,
   boardOrderChanged,
-  lineupToSave,
+  placeOnLineup,
   type BoardOrderMove,
 } from "@/lib/board-order-moves"
 import { cn } from "@/lib/utils"
@@ -210,15 +210,15 @@ function BoardOrderSections({
     ? eventMode && showUnassigned
       ? `Drag players to set boards 1–${MAX_BOARD_SLOTS}. Board 1 is the strongest.`
       : showUnassigned
-        ? `Drag players between the lineup and bench. Up to ${MAX_BOARD_SLOTS} boards.`
+        ? `Drag players between the lineup and JV / bench. Up to ${MAX_BOARD_SLOTS} boards.`
         : "Drag to reorder the list."
     : "Board 1 is the strongest player. Lower numbers play higher boards."
 
-  const benchTitle = "On the bench"
+  const benchTitle = "JV / bench"
   const benchDescription = editable
     ? eventMode
       ? "Members not on a board for this event. Drag here to remove from the lineup."
-      : "Drag members here to remove them from the lineup."
+      : "Drag members here to take them off the lineup. This order is saved."
     : eventMode
       ? "Not assigned to a board for this event."
       : "These members are not assigned to a board right now."
@@ -378,25 +378,6 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
     setState(showUnassigned ? built : collapseUnassigned(built))
   }, [buildState, clubDisplay, players, showUnassigned])
 
-  useEffect(() => {
-    if (!activeId) return
-
-    const { body, documentElement } = document
-    const prevBodyOverflow = body.style.overflow
-    const prevHtmlOverflow = documentElement.style.overflow
-    const prevBodyTouchAction = body.style.touchAction
-
-    body.style.overflow = "hidden"
-    documentElement.style.overflow = "hidden"
-    body.style.touchAction = "none"
-
-    return () => {
-      body.style.overflow = prevBodyOverflow
-      documentElement.style.overflow = prevHtmlOverflow
-      body.style.touchAction = prevBodyTouchAction
-    }
-  }, [activeId])
-
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, {
@@ -416,16 +397,22 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
     const arranged = buildEventBoardOrderFromClubOrder(eventPlayers)
     const next = showUnassigned ? arranged : collapseUnassigned(arranged)
     setState(next)
-    await persist(arranged.lineup)
+    await persist(next)
   }
 
-  async function persist(lineup: Profile[]) {
-    const lineupIds = lineup
+  function savableIds(playersToSave: Profile[]) {
+    return playersToSave
       .filter((p) => !isDeletedMemberPlayer(p) && !p.id.startsWith("deleted:"))
       .map((p) => p.id)
+  }
+
+  async function persist(next: BoardOrderState) {
+    const working = showUnassigned ? next : collapseUnassigned(next)
+    const lineupIds = savableIds(working.lineup)
+    const benchIds = showUnassigned ? savableIds(working.unassigned) : []
     const save = eventId
-      ? () => saveEventBoardOrderAction(eventId, lineupIds)
-      : () => saveBoardOrderAction(lineupIds)
+      ? () => saveEventBoardOrderAction(eventId, lineupIds, benchIds)
+      : () => saveBoardOrderAction(lineupIds, benchIds)
 
     setIsSaving(true)
     try {
@@ -455,23 +442,22 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
     const activeContainer = findContainer(prev, activeId)
     if (!activeContainer || activeContainer === overContainer) return null
 
-    if (overContainer === LINEUP_CONTAINER && prev.lineup.length >= MAX_BOARD_SLOTS) {
-      toast.error(`Maximum ${MAX_BOARD_SLOTS} boards.`)
-      return null
-    }
-
-    const lineup = prev.lineup.filter((p) => p.id !== activeId)
-    const unassigned = prev.unassigned.filter((p) => p.id !== activeId)
-
     if (overContainer === LINEUP_CONTAINER) {
-      const overIndex = lineup.findIndex((p) => p.id === overId)
-      if (overIndex >= 0) lineup.splice(overIndex, 0, player)
-      else lineup.push(player)
-    } else {
-      const overIndex = unassigned.findIndex((p) => p.id === overId)
-      if (overIndex >= 0) unassigned.splice(overIndex, 0, player)
-      else unassigned.push(player)
+      const withoutActive = prev.lineup.filter((p) => p.id !== player.id)
+      const overIndex = withoutActive.findIndex((p) => p.id === overId)
+      return placeOnLineup(
+        prev.lineup,
+        prev.unassigned,
+        player,
+        overIndex >= 0 ? overIndex : withoutActive.length
+      )
     }
+
+    const lineup = prev.lineup.filter((p) => p.id !== player.id)
+    const unassigned = prev.unassigned.filter((p) => p.id !== player.id)
+    const overIndex = unassigned.findIndex((p) => p.id === overId)
+    if (overIndex >= 0) unassigned.splice(overIndex, 0, player)
+    else unassigned.push(player)
 
     return { lineup, unassigned }
   }
@@ -518,6 +504,18 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
       return prev
     }
 
+    if (activeContainer === overContainer && activeContainer === UNASSIGNED_CONTAINER) {
+      const oldIndex = working.unassigned.findIndex((p) => p.id === activeId)
+      const newIndex = working.unassigned.findIndex((p) => p.id === overId)
+      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+        return {
+          ...working,
+          unassigned: arrayMove(working.unassigned, oldIndex, newIndex),
+        }
+      }
+      return prev
+    }
+
     if (activeContainer !== overContainer) {
       const moved = moveBetweenContainers(working, activeId, overId, overContainer)
       if (moved) return moved
@@ -531,17 +529,12 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
 
     const prev = stateRef.current
     const next = applyBoardOrderMove(prev, move, { showUnassigned })
-    if (!next) {
-      if (move.type === "to-lineup") {
-        toast.error(`Maximum ${MAX_BOARD_SLOTS} boards.`)
-      }
-      return
-    }
+    if (!next) return
 
     setState(next)
 
     if (boardOrderChanged(prev, next)) {
-      void persist(lineupToSave(next, showUnassigned))
+      void persist(next)
     }
   }
 
@@ -568,10 +561,7 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
       next.unassigned.some((p, i) => p.id !== prev.unassigned[i]?.id)
 
     if (changed) {
-      const lineupToSave = showUnassigned
-        ? next.lineup
-        : collapseUnassigned(next).lineup
-      persist(lineupToSave)
+      void persist(next)
     }
   }
 
@@ -646,7 +636,7 @@ export function BoardOrderDnD({ players, editable, eventId }: BoardOrderDnDProps
             <DndContext
               sensors={sensors}
               collisionDetection={closestCorners}
-              autoScroll={false}
+              autoScroll={{ threshold: { x: 0, y: 0.18 }, acceleration: 14 }}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
             >

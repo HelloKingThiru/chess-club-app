@@ -66,8 +66,8 @@ export function boardRankMeta(boardNumber: number | null) {
     }
   }
   return {
-    label: "Bench",
-    hint: "Not on a board yet",
+    label: "JV",
+    hint: "JV / bench",
     badgeClass:
       "border border-dashed border-muted-foreground/30 bg-muted/40 text-muted-foreground",
     rowClass: "bg-card",
@@ -116,7 +116,7 @@ export function BoardRankBadge({
           size === "sm" ? "text-[8px]" : "text-[9px] sm:text-[10px]"
         )}
       >
-        {boardNumber == null ? "Bench" : "Board"}
+        {boardNumber == null ? "JV" : "Board"}
       </span>
     </div>
   )
@@ -141,9 +141,9 @@ export function BoardOrderStats({
           hint: "Starting lineup",
         },
         {
-          label: "On the bench",
+          label: "JV / bench",
           value: String(unassigned),
-          hint: "Not assigned yet",
+          hint: "Order is saved",
         },
         {
           label: "Club members",

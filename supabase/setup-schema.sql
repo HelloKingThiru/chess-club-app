@@ -235,9 +235,11 @@ create table if not exists public.posts (
 
 create table if not exists public.game_results (
   id uuid primary key default gen_random_uuid(),
-  player_id uuid not null references public.profiles (id) on delete cascade,
+  player_id uuid references public.profiles (id) on delete set null,
   opponent text not null,
-  result text not null check (result in ('win', 'loss', 'draw')),
+  white_name text,
+  black_name text,
+  result text not null check (result in ('1-0', '1/2-1/2', '0-1')),
   event_name text,
   played_on date,
   board_number integer,
@@ -259,9 +261,18 @@ create policy "Admins manage posts"
   with check (public.is_admin());
 
 drop policy if exists "Users read own game results" on public.game_results;
-create policy "Users read own game results"
+drop policy if exists "Anyone can read game results" on public.game_results;
+drop policy if exists "Members can read game results" on public.game_results;
+create policy "Members can read game results"
   on public.game_results for select
-  using (auth.uid() = player_id or public.is_admin());
+  to authenticated
+  using (auth.uid() is not null);
+
+drop policy if exists "Members insert game results" on public.game_results;
+create policy "Members insert game results"
+  on public.game_results for insert
+  to authenticated
+  with check (auth.uid() is not null);
 
 drop policy if exists "Admins manage game results" on public.game_results;
 create policy "Admins manage game results"

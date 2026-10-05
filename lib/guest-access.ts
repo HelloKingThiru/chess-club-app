@@ -8,7 +8,7 @@ export const PUBLIC_PROFILE_COLUMNS =
 
 export function isAuthRequiredPath(pathname: string) {
   if (pathname === "/profile") return true
-  return ["/chat", "/admin", "/change-password"].some(
+  return ["/chat", "/admin", "/change-password", "/logs"].some(
     (path) => pathname === path || pathname.startsWith(`${path}/`)
   )
 }

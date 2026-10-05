@@ -48,16 +48,58 @@ export function applyBoardOrderMove(
   }
 
   if (move.type === "to-lineup") {
-    if (working.lineup.length >= MAX_BOARD_SLOTS) return null
     const player = working.unassigned.find((p) => p.id === move.playerId)
     if (!player) return null
-    return {
-      lineup: [...working.lineup, player],
-      unassigned: working.unassigned.filter((p) => p.id !== move.playerId),
-    }
+    return placeOnLineup(
+      working.lineup,
+      working.unassigned,
+      player,
+      working.lineup.length
+    )
   }
 
   return null
+}
+
+/** Put a player on the lineup. Past board 8, the last lineup player moves to the bench. */
+export function placeOnLineup(
+  lineup: Profile[],
+  unassigned: Profile[],
+  player: Profile,
+  insertAt: number
+): BoardOrderState {
+  const bench = unassigned.filter((person) => person.id !== player.id)
+  const next = lineup.filter((person) => person.id !== player.id)
+  const index = Math.max(0, Math.min(insertAt, next.length))
+  next.splice(index, 0, player)
+
+  if (next.length <= MAX_BOARD_SLOTS) {
+    return { lineup: next, unassigned: bench }
+  }
+
+  let kept = next.slice(0, MAX_BOARD_SLOTS)
+  let overflow = next.slice(MAX_BOARD_SLOTS)
+
+  if (
+    overflow.length === 1 &&
+    overflow[0]?.id === player.id &&
+    kept.length === MAX_BOARD_SLOTS
+  ) {
+    const bumped = kept[MAX_BOARD_SLOTS - 1]
+    if (bumped) {
+      kept = [...kept.slice(0, MAX_BOARD_SLOTS - 1), player]
+      overflow = [bumped]
+    }
+  }
+
+  const overflowIds = new Set(overflow.map((person) => person.id))
+  return {
+    lineup: kept,
+    unassigned: [
+      ...overflow,
+      ...bench.filter((person) => !overflowIds.has(person.id)),
+    ],
+  }
 }
 
 export function lineupToSave(
